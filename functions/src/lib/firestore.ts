@@ -5,6 +5,5 @@ if (admin.apps.length === 0) {
 }
 
 export const db = admin.firestore();
-export const storage = admin.storage();
 export const FieldValue = admin.firestore.FieldValue;
 export const Timestamp = admin.firestore.Timestamp;

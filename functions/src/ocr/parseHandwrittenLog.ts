@@ -3,13 +3,15 @@ import { z } from 'zod';
 
 import { OCR_DAILY_QUOTA, OPENAI_API_KEY, REGION } from '../config';
 import { assertAuth, assertFamilyMember } from '../lib/auth';
-import { db, FieldValue, storage, Timestamp } from '../lib/firestore';
+import { db, FieldValue, Timestamp } from '../lib/firestore';
 import { callOpenAi } from './openaiClient';
 
+/// 클라이언트가 사진을 base64 로 인라인 전송. Storage 경유 없음.
 const Input = z.object({
   familyId: z.string().min(1),
   babyId: z.string().min(1),
-  storagePath: z.string().min(1),
+  imageBase64: z.string().min(1),
+  mimeType: z.string().default('image/jpeg'),
   assumedDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -99,21 +101,25 @@ export const parseHandwrittenLog = onCall(
     await assertFamilyMember(uid, input.familyId);
     await checkOcrQuota(uid);
 
-    // Storage 에서 이미지 다운로드
-    const bucket = storage.bucket();
-    const file = bucket.file(input.storagePath);
-    const [exists] = await file.exists();
-    if (!exists) {
-      throw new HttpsError('not-found', '업로드된 사진을 찾을 수 없습니다.');
+    // base64 → Buffer (Storage 경유 없음 — 사진은 Function 메모리에서만 처리되고 폐기)
+    let bytes: Buffer;
+    try {
+      bytes = Buffer.from(input.imageBase64, 'base64');
+    } catch (e) {
+      throw new HttpsError('invalid-argument', '이미지 데이터를 읽을 수 없습니다.');
     }
-    const [bytes] = await file.download();
-    const [meta] = await file.getMetadata();
-    const mimeType = meta.contentType || 'image/jpeg';
+    if (bytes.length === 0) {
+      throw new HttpsError('invalid-argument', '이미지 데이터가 비어있습니다.');
+    }
 
     // OpenAI 호출
     let text: string;
     try {
-      const res = await callOpenAi(OPENAI_API_KEY.value(), bytes, mimeType);
+      const res = await callOpenAi(
+        OPENAI_API_KEY.value(),
+        bytes,
+        input.mimeType
+      );
       text = res.text;
     } catch (e) {
       throw new HttpsError('internal', `OpenAI 호출 실패: ${(e as Error).message}`);

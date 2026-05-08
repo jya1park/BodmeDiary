@@ -32,7 +32,6 @@ class CareEvent {
     this.feedingAmountMl,
     this.diaperKind,
     this.note,
-    this.ocrPhotoPath,
   });
 
   final String id;
@@ -45,7 +44,6 @@ class CareEvent {
   final int? feedingAmountMl;
   final DiaperKind? diaperKind;
   final String? note;
-  final String? ocrPhotoPath;
 
   Duration get duration => endAt.difference(startAt);
 
@@ -67,7 +65,6 @@ class CareEvent {
       feedingAmountMl: (feeding?['amountMl'] as num?)?.toInt(),
       diaperKind: _diaperFrom(diaper?['kind'] as String?),
       note: (diaper?['note'] ?? sleep?['note']) as String?,
-      ocrPhotoPath: d['ocrPhotoPath'] as String?,
     );
   }
 
@@ -81,7 +78,6 @@ class CareEvent {
       'createdByUid': createdByUid,
       'createdAt': FieldValue.serverTimestamp(),
       'source': source.name,
-      if (ocrPhotoPath != null) 'ocrPhotoPath': ocrPhotoPath,
     };
     if (type == CareEventType.feeding) {
       m['feeding'] = {

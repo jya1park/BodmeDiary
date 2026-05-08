@@ -3,7 +3,7 @@
 신생아 관리 히스토리 앱 — **수유 · 기저귀 · 잠** 을 가족 구성원이 함께 기록·공유하고, 손글씨 종이 일지는 사진 한 장으로 자동 디지털화.
 
 - **플랫폼**: Flutter (iOS + Android)
-- **백엔드**: Firebase (Auth · Firestore · Storage · Cloud Functions, 리전 `asia-northeast3`)
+- **백엔드**: Firebase (Auth · Firestore · Cloud Functions, 리전 `asia-northeast3`). Storage 미사용 — OCR 사진은 Function 메모리에서만 처리되고 폐기.
 - **OCR**: OpenAI Vision (`gpt-4o-mini`, Cloud Functions 경유)
 - **로케일**: 한국어 (ko_KR)
 
@@ -25,7 +25,7 @@ lib/
 └── features/  # auth, onboarding, home, feeding, diaper, sleep,
               #  history, photo_ocr, settings, shell
 functions/     # TypeScript Cloud Functions (invites, OCR)
-firestore.rules, storage.rules, firestore.indexes.json
+firestore.rules, firestore.indexes.json
 ```
 
 자세한 설계는 `/root/.claude/plans/linear-cooking-otter.md` 참조.
@@ -51,7 +51,7 @@ cd ..
 firebase functions:secrets:set OPENAI_API_KEY
 
 # 5. 보안 규칙·함수 배포
-firebase deploy --only firestore:rules,storage,functions
+firebase deploy --only firestore:rules,functions
 
 # 6. 실행
 flutter run
