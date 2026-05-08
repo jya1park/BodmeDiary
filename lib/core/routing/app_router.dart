@@ -9,9 +9,6 @@ import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/history/presentation/history_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/onboarding/presentation/add_baby_screen.dart';
-import '../../features/onboarding/presentation/create_family_screen.dart';
-import '../../features/onboarding/presentation/family_choice_screen.dart';
-import '../../features/onboarding/presentation/join_family_screen.dart';
 import '../../features/photo_ocr/presentation/photo_capture_screen.dart';
 import '../../features/photo_ocr/presentation/photo_review_screen.dart';
 import '../../features/settings/presentation/family_invite_screen.dart';
@@ -42,19 +39,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return loc == Routes.signIn ? null : Routes.signIn;
       }
 
-      // 로그인 됨 — family 상태 따라 분기
+      // 로그인 됨 — family 는 회원가입 시 자동 생성됨. 아직 도착 전이면 splash 유지.
       final family = familyState.valueOrNull;
-
-      // 가족 없음
-      if (family == null || family.familyId == null) {
-        if (loc.startsWith('/onboarding/')) return null;
-        return Routes.onboardingFamilyChoice;
+      if (family == null) {
+        return loc == Routes.splash ? null : Routes.splash;
+      }
+      if (family.familyId == null) {
+        // 자동 생성 실패 등으로 가족이 없음 — splash 에 머물러 재시도/오류 표시
+        return loc == Routes.splash ? null : Routes.splash;
       }
 
-      // 가족 있음 + 아기 없음
+      // 가족 있음 + 아기 없음 → 아기 등록
       if (family.babies.isEmpty) {
-        if (loc == Routes.onboardingAddBaby) return null;
-        return Routes.onboardingAddBaby;
+        return loc == Routes.onboardingAddBaby
+            ? null
+            : Routes.onboardingAddBaby;
       }
 
       // 정상 사용자가 splash/signin/onboarding 으로 가면 홈으로
@@ -68,18 +67,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: Routes.splash, builder: (_, __) => const SplashScreen()),
       GoRoute(path: Routes.signIn, builder: (_, __) => const SignInScreen()),
-      GoRoute(
-        path: Routes.onboardingFamilyChoice,
-        builder: (_, __) => const FamilyChoiceScreen(),
-      ),
-      GoRoute(
-        path: Routes.onboardingCreateFamily,
-        builder: (_, __) => const CreateFamilyScreen(),
-      ),
-      GoRoute(
-        path: Routes.onboardingJoinFamily,
-        builder: (_, __) => const JoinFamilyScreen(),
-      ),
       GoRoute(
         path: Routes.onboardingAddBaby,
         builder: (_, __) => const AddBabyScreen(),
