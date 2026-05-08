@@ -53,7 +53,6 @@ class _PhotoReviewScreenState extends ConsumerState<PhotoReviewScreen> {
           localDayKey: localDayKey(e.startAt, baby.timezone),
           createdByUid: user.uid,
           source: CareEventSource.ocr,
-          feedingSide: e.feedingSide,
           feedingAmountMl: e.feedingAmountMl,
           diaperKind: e.diaperKind,
           note: e.note,
@@ -151,14 +150,9 @@ class _PhotoReviewScreenState extends ConsumerState<PhotoReviewScreen> {
   String _describe(OcrParsedEvent e) {
     switch (e.type) {
       case CareEventType.feeding:
-        final side = switch (e.feedingSide) {
-          FeedingSide.leftBreast => '왼쪽',
-          FeedingSide.rightBreast => '오른쪽',
-          FeedingSide.bottle => '분유',
-          FeedingSide.pump => '유축',
-          null => '수유',
-        };
-        return '수유 — $side${e.feedingAmountMl == null ? '' : ' ${e.feedingAmountMl}ml'}';
+        return e.feedingAmountMl == null
+            ? '수유 (모유)'
+            : '수유 (분유 ${e.feedingAmountMl}ml)';
       case CareEventType.diaper:
         final kind = switch (e.diaperKind) {
           DiaperKind.pee => '소변',

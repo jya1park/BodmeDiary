@@ -2,8 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum CareEventType { feeding, diaper, sleep }
 
-enum FeedingSide { leftBreast, rightBreast, bottle, pump }
-
 enum DiaperKind { pee, poop, both }
 
 enum CareEventSource { manual, ocr, timer }
@@ -11,9 +9,6 @@ enum CareEventSource { manual, ocr, timer }
 CareEventType _typeFrom(String s) =>
     CareEventType.values.firstWhere((e) => e.name == s,
         orElse: () => CareEventType.diaper);
-FeedingSide? _sideFrom(String? s) =>
-    s == null ? null : FeedingSide.values.firstWhere((e) => e.name == s,
-        orElse: () => FeedingSide.bottle);
 DiaperKind? _diaperFrom(String? s) =>
     s == null ? null : DiaperKind.values.firstWhere((e) => e.name == s,
         orElse: () => DiaperKind.pee);
@@ -22,6 +17,9 @@ CareEventSource _sourceFrom(String? s) =>
         orElse: () => CareEventSource.manual);
 
 /// Firestore `events/*` 단일 문서 모델. 타입에 따라 일부 필드만 의미를 가진다.
+///
+/// 수유는 좌/우 구분이 없고 시간(startAt~endAt) 만 기록한다. [feedingAmountMl]
+/// 가 지정되면 분유 수유, 비어있으면 모유로 본다.
 class CareEvent {
   const CareEvent({
     required this.id,
@@ -31,7 +29,6 @@ class CareEvent {
     required this.localDayKey,
     required this.createdByUid,
     required this.source,
-    this.feedingSide,
     this.feedingAmountMl,
     this.diaperKind,
     this.note,
@@ -45,7 +42,6 @@ class CareEvent {
   final String localDayKey;
   final String createdByUid;
   final CareEventSource source;
-  final FeedingSide? feedingSide;
   final int? feedingAmountMl;
   final DiaperKind? diaperKind;
   final String? note;
@@ -68,7 +64,6 @@ class CareEvent {
       localDayKey: (d['localDayKey'] as String?) ?? '',
       createdByUid: (d['createdByUid'] as String?) ?? '',
       source: _sourceFrom(d['source'] as String?),
-      feedingSide: _sideFrom(feeding?['side'] as String?),
       feedingAmountMl: (feeding?['amountMl'] as num?)?.toInt(),
       diaperKind: _diaperFrom(diaper?['kind'] as String?),
       note: (diaper?['note'] ?? sleep?['note']) as String?,
@@ -90,7 +85,6 @@ class CareEvent {
     };
     if (type == CareEventType.feeding) {
       m['feeding'] = {
-        if (feedingSide != null) 'side': feedingSide!.name,
         if (feedingAmountMl != null) 'amountMl': feedingAmountMl,
       };
     } else if (type == CareEventType.diaper) {

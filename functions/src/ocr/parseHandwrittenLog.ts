@@ -18,10 +18,6 @@ const Input = z.object({
 
 const FeedingSchema = z
   .object({
-    side: z
-      .enum(['leftBreast', 'rightBreast', 'bottle', 'pump'])
-      .nullable()
-      .optional(),
     amountMl: z.number().int().nonnegative().nullable().optional(),
   })
   .nullable()

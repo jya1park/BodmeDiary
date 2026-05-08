@@ -22,7 +22,6 @@ void main() {
           localDayKey: '2026-05-07',
           createdByUid: 'u',
           source: CareEventSource.manual,
-          feedingSide: FeedingSide.leftBreast,
         ),
         CareEvent(
           id: '2',

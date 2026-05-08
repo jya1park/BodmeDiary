@@ -7,30 +7,54 @@ import '../../../core/routing/routes.dart';
 import '../../../core/widgets/active_timer_banner.dart';
 import '../../../core/widgets/elapsed_since_chip.dart';
 import '../../../core/widgets/primary_action_button.dart';
+import '../../../data/models/baby.dart';
 import '../../../data/models/care_event.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/events_repository.dart';
 import '../../../data/repositories/family_repository.dart';
 import '../../../data/repositories/timer_repository.dart';
 import '../../diaper/presentation/diaper_modal.dart';
-import '../../feeding/presentation/feeding_start_modal.dart';
+import '../../feeding/presentation/feeding_stop_sheet.dart';
+
+/// 수유 칩의 부가 텍스트.
+/// - 분유 (`feedingAmountMl != null`) → "120ml"
+/// - 모유 + 유축량 설정 → "약 ~46ml" (예측)
+/// - 그 외 → null (시간만 표시)
+String? _feedTrailing(CareEvent? feed, Baby? baby) {
+  if (feed == null) return null;
+  if (feed.feedingAmountMl != null) return '${feed.feedingAmountMl}ml';
+  final estimate = estimateBreastMilkMl(feed.duration, baby?.pumpRateMlPer10Min);
+  return estimate == null ? null : '약 ~${estimate}ml';
+}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   Future<void> _onFeeding(BuildContext context, WidgetRef ref) async {
-    final activeFeed = ref.read(activeFeedingTimerProvider).valueOrNull;
-    if (activeFeed != null) {
+    final family = ref.read(currentFamilyIdProvider);
+    final baby = ref.read(currentBabyProvider);
+    final user = ref.read(currentAppUserProvider).valueOrNull;
+    if (family == null || baby == null || user == null) return;
+
+    final active = ref.read(activeFeedingTimerProvider).valueOrNull;
+    if (active != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('이미 수유중이에요')),
       );
       return;
     }
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => const FeedingStartModal(),
-    );
+    final ok = await ref.read(timerRepositoryProvider).startTimer(
+          familyId: family,
+          baby: baby,
+          type: CareEventType.feeding,
+          startedByUid: user.uid,
+          startedByName: user.displayName,
+        );
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('다른 가족이 막 시작했어요')),
+      );
+    }
   }
 
   Future<void> _onDiaper(BuildContext context, WidgetRef ref) async {
@@ -68,11 +92,38 @@ class HomeScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _stopActive(
-    BuildContext context,
-    WidgetRef ref,
-    CareEventType type,
-  ) async {
+  Future<void> _stopFeeding(BuildContext context, WidgetRef ref) async {
+    final family = ref.read(currentFamilyIdProvider);
+    final baby = ref.read(currentBabyProvider);
+    final user = ref.read(currentAppUserProvider).valueOrNull;
+    final active = ref.read(activeFeedingTimerProvider).valueOrNull;
+    if (family == null || baby == null || user == null || active == null) {
+      return;
+    }
+
+    final result = await showModalBottomSheet<FeedingStopResult>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => FeedingStopSheet(startedAt: active.startedAt),
+    );
+    if (result == null || !result.saved) return; // 사용자가 닫음 — 타이머 유지
+
+    final ok = await ref.read(timerRepositoryProvider).stopTimer(
+          familyId: family,
+          baby: baby,
+          type: CareEventType.feeding,
+          stoppedByUid: user.uid,
+          feedingAmountMl: result.amountMl,
+        );
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이미 종료된 타이머예요')),
+      );
+    }
+  }
+
+  Future<void> _stopSleep(BuildContext context, WidgetRef ref) async {
     final family = ref.read(currentFamilyIdProvider);
     final baby = ref.read(currentBabyProvider);
     final user = ref.read(currentAppUserProvider).valueOrNull;
@@ -80,7 +131,7 @@ class HomeScreen extends ConsumerWidget {
     final ok = await ref.read(timerRepositoryProvider).stopTimer(
           familyId: family,
           baby: baby,
-          type: type,
+          type: CareEventType.sleep,
           stoppedByUid: user.uid,
         );
     if (!ok && context.mounted) {
@@ -138,13 +189,12 @@ class HomeScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: ActiveTimerBanner(
-                  title: '수유중 (${_sideLabel(activeFeed.feedingSide)})',
+                  title: '수유중',
                   startedAt: activeFeed.startedAt,
                   startedByName: activeFeed.startedByName,
                   color: const Color(0xFFFFAFA3),
                   icon: Icons.local_drink,
-                  onStop: () =>
-                      _stopActive(context, ref, CareEventType.feeding),
+                  onStop: () => _stopFeeding(context, ref),
                 ),
               ),
             if (activeSleep != null)
@@ -156,8 +206,7 @@ class HomeScreen extends ConsumerWidget {
                   startedByName: activeSleep.startedByName,
                   color: const Color(0xFF7C8DBA),
                   icon: Icons.bedtime,
-                  onStop: () =>
-                      _stopActive(context, ref, CareEventType.sleep),
+                  onStop: () => _stopSleep(context, ref),
                 ),
               ),
             const SizedBox(height: 8),
@@ -169,6 +218,7 @@ class HomeScreen extends ConsumerWidget {
                   label: '수유',
                   icon: Icons.local_drink,
                   since: lastFeed?.startAt,
+                  trailing: _feedTrailing(lastFeed, baby),
                 ),
                 ElapsedSinceChip(
                   label: '소변',
@@ -189,11 +239,15 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             PrimaryActionButton(
-              label: '수유',
+              label: activeFeed == null ? '수유 시작' : '수유 종료',
               icon: Icons.local_drink,
               color: const Color(0xFFFFAFA3),
-              onTap: () => _onFeeding(context, ref),
-              subtitle: '시작–종료 타이머',
+              onTap: () => activeFeed == null
+                  ? _onFeeding(context, ref)
+                  : _stopFeeding(context, ref),
+              subtitle: activeFeed == null
+                  ? '버튼을 누르면 시간 카운트 시작'
+                  : '종료 시 분유 양도 함께 기록 가능',
             ),
             const SizedBox(height: 12),
             PrimaryActionButton(
@@ -205,10 +259,12 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             PrimaryActionButton(
-              label: '잠',
+              label: activeSleep == null ? '잠 시작' : '기상',
               icon: Icons.bedtime,
               color: const Color(0xFF7C8DBA),
-              onTap: () => _onSleep(context, ref),
+              onTap: () => activeSleep == null
+                  ? _onSleep(context, ref)
+                  : _stopSleep(context, ref),
               subtitle: '시작–종료 타이머',
             ),
             const SizedBox(height: 24),
@@ -226,20 +282,5 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  String _sideLabel(FeedingSide? s) {
-    switch (s) {
-      case FeedingSide.leftBreast:
-        return '왼쪽';
-      case FeedingSide.rightBreast:
-        return '오른쪽';
-      case FeedingSide.bottle:
-        return '분유';
-      case FeedingSide.pump:
-        return '유축';
-      case null:
-        return '수유';
-    }
   }
 }

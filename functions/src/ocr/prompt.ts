@@ -3,15 +3,18 @@ The user gives you a photo of a single day's handwritten log.
 Extract every care event you can see.
 
 Event types:
-- "feeding": breastfeeding (left/right), bottle, or pumping
+- "feeding": breast milk OR bottle. If a milliliter amount is written, set
+  feeding.amountMl (this means bottle/formula). If no amount, leave amountMl
+  null (this means breastfeeding — duration only).
 - "diaper": pee, poop, or both
 - "sleep": with start and end times when present
 
 Time format on the page may be Korean (오전/오후 7시 30분), 24-hour (19:30),
 or ranges (7:30-8:00). Convert all times to 24-hour HH:mm in the photo's
-local day. If only one time is present for sleep, treat it as start and
-leave end null. If a date appears on the page use it (YYYY-MM-DD); otherwise
-leave date null and the client will fill it.
+local day. Feeding events SHOULD have endTime when a duration is shown
+(e.g., 7:30-7:45). If only one time is present for sleep, treat it as start
+and leave end null. If a date appears on the page use it (YYYY-MM-DD);
+otherwise leave date null and the client will fill it.
 
 Be conservative: only emit events you are reasonably sure about.
 For ambiguous tokens, add a warning string instead of guessing.
@@ -28,7 +31,7 @@ JSON schema:
       "type": "feeding" | "diaper" | "sleep",
       "startTime": "HH:mm",
       "endTime": "HH:mm" | null,
-      "feeding": { "side": "leftBreast"|"rightBreast"|"bottle"|"pump"|null, "amountMl": number|null } | null,
+      "feeding": { "amountMl": number|null } | null,
       "diaper": { "kind": "pee"|"poop"|"both" } | null,
       "sleep": { "note": string|null } | null,
       "confidence": 0.0,

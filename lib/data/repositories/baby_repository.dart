@@ -28,6 +28,19 @@ class BabyRepository {
     await ref.set(baby.toCreateMap());
     return ref.id;
   }
+
+  /// 10분당 유축량 (ml) 갱신. null 을 주면 필드 삭제.
+  Future<void> updatePumpRate({
+    required String familyId,
+    required String babyId,
+    required int? pumpRateMlPer10Min,
+  }) async {
+    await _firestore.doc(FirestorePaths.baby(familyId, babyId)).update({
+      'pumpRateMlPer10Min':
+          pumpRateMlPer10Min ?? FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }
 
 final babyRepositoryProvider = Provider<BabyRepository>(

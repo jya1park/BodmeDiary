@@ -34,7 +34,6 @@ class TimerRepository {
     required CareEventType type,
     required String startedByUid,
     required String startedByName,
-    FeedingSide? feedingSide,
   }) async {
     final ref =
         _firestore.doc(FirestorePaths.activeTimer(familyId, baby.id, type.name));
@@ -51,7 +50,6 @@ class TimerRepository {
             startedAt: DateTime.now(),
             startedByUid: startedByUid,
             startedByName: startedByName,
-            feedingSide: feedingSide,
           ).toCreateMap(),
         );
       });
@@ -91,7 +89,6 @@ class TimerRepository {
         localDayKey: localDayKey(active.startedAt, baby.timezone),
         createdByUid: stoppedByUid,
         source: CareEventSource.timer,
-        feedingSide: active.feedingSide,
         feedingAmountMl: feedingAmountMl,
         note: note,
       );

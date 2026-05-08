@@ -35,7 +35,6 @@ class OcrParsedEvent {
     required this.endAt,
     required this.localDayKey,
     required this.confidence,
-    this.feedingSide,
     this.feedingAmountMl,
     this.diaperKind,
     this.note,
@@ -50,7 +49,6 @@ class OcrParsedEvent {
   String localDayKey;
   final double confidence;
 
-  FeedingSide? feedingSide;
   int? feedingAmountMl;
   DiaperKind? diaperKind;
   String? note;
@@ -82,7 +80,6 @@ class OcrParsedEvent {
       endAt: endAt,
       localDayKey: dateStr,
       confidence: ((m['confidence'] as num?) ?? 0).toDouble(),
-      feedingSide: _parseSide(feeding?['side'] as String?),
       feedingAmountMl: (feeding?['amountMl'] as num?)?.toInt(),
       diaperKind: _parseDiaper(diaper?['kind'] as String?),
       note: (diaper?['note'] ?? sleep?['note']) as String?,
@@ -108,10 +105,6 @@ class OcrParsedEvent {
       int.parse(tp[1]),
     );
   }
-
-  static FeedingSide? _parseSide(String? s) =>
-      s == null ? null : FeedingSide.values.firstWhere(
-          (e) => e.name == s, orElse: () => FeedingSide.bottle);
 
   static DiaperKind? _parseDiaper(String? s) =>
       s == null ? null : DiaperKind.values.firstWhere(

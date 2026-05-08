@@ -8,7 +8,6 @@ class ActiveTimer {
     required this.startedAt,
     required this.startedByUid,
     required this.startedByName,
-    this.feedingSide,
     this.clientStartedAtMs,
   });
 
@@ -16,13 +15,10 @@ class ActiveTimer {
   final DateTime startedAt;
   final String startedByUid;
   final String startedByName;
-  final FeedingSide? feedingSide;
   final int? clientStartedAtMs;
 
   factory ActiveTimer.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? const <String, dynamic>{};
-    final meta = (d['metadata'] as Map?)?.cast<String, dynamic>();
-    final sideRaw = meta?['side'] as String?;
     return ActiveTimer(
       type: (d['type'] as String?) == 'sleep'
           ? CareEventType.sleep
@@ -32,10 +28,6 @@ class ActiveTimer {
               (d['clientStartedAtMs'] as num?)?.toInt() ?? 0),
       startedByUid: (d['startedByUid'] as String?) ?? '',
       startedByName: (d['startedByName'] as String?) ?? '',
-      feedingSide: sideRaw == null
-          ? null
-          : FeedingSide.values
-              .firstWhere((e) => e.name == sideRaw, orElse: () => FeedingSide.bottle),
       clientStartedAtMs: (d['clientStartedAtMs'] as num?)?.toInt(),
     );
   }
@@ -45,9 +37,6 @@ class ActiveTimer {
         'startedAt': FieldValue.serverTimestamp(),
         'startedByUid': startedByUid,
         'startedByName': startedByName,
-        'metadata': {
-          if (feedingSide != null) 'side': feedingSide!.name,
-        },
         'clientStartedAtMs': DateTime.now().millisecondsSinceEpoch,
       };
 }
