@@ -22,7 +22,7 @@ List<String> recentDayKeys(int days, String timezoneName, {DateTime? now}) {
     final d = base.subtract(Duration(days: days - 1 - i));
     return '${d.year.toString().padLeft(4, '0')}-'
         '${d.month.toString().padLeft(2, '0')}-'
-        '${d.day.toString().padLeft(2, '0')}');
+        '${d.day.toString().padLeft(2, '0')}';
   });
 }
 

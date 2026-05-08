@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,23 +89,61 @@ class FamilyState {
   final List<Baby> babies;
 }
 
-final currentFamilyStateProvider = StreamProvider<FamilyState>((ref) async* {
-  final me = await ref.watch(currentAppUserProvider.future);
+/// `users/{uid}.familyId` · `families/{id}` · `families/{id}/babies` 세 스트림
+/// 어느 하나라도 변경되면 새로 emit. 아기 추가/삭제 시에도 즉시 반영된다.
+final currentFamilyStateProvider = StreamProvider<FamilyState>((ref) {
+  final me = ref.watch(currentAppUserProvider).valueOrNull;
   if (me?.familyId == null) {
-    yield const FamilyState();
-    return;
+    return Stream.value(const FamilyState());
   }
   final familyId = me!.familyId!;
   final repo = ref.watch(familyRepositoryProvider);
-  await for (final family in repo.watchFamily(familyId)) {
-    if (family == null) {
-      yield FamilyState(familyId: familyId);
-      continue;
-    }
-    final babies = await repo.watchBabies(familyId).first;
-    yield FamilyState(familyId: familyId, family: family, babies: babies);
-  }
+
+  final familyStream = repo.watchFamily(familyId);
+  final babiesStream = repo.watchBabies(familyId);
+
+  // 두 스트림을 직접 조합 — 둘 중 하나가 emit 할 때마다 마지막 값으로 새 상태.
+  return _combine2<Family?, List<Baby>, FamilyState>(
+    familyStream,
+    babiesStream,
+    (family, babies) => FamilyState(
+      familyId: familyId,
+      family: family,
+      babies: babies,
+    ),
+  );
 });
+
+Stream<R> _combine2<A, B, R>(
+  Stream<A> a,
+  Stream<B> b,
+  R Function(A, B) combine,
+) async* {
+  A? lastA;
+  B? lastB;
+  var hasA = false;
+  var hasB = false;
+
+  final controller = StreamController<R>();
+  final subA = a.listen((v) {
+    lastA = v;
+    hasA = true;
+    if (hasA && hasB) controller.add(combine(lastA as A, lastB as B));
+  }, onError: controller.addError);
+  final subB = b.listen((v) {
+    lastB = v;
+    hasB = true;
+    if (hasA && hasB) controller.add(combine(lastA as A, lastB as B));
+  }, onError: controller.addError);
+
+  try {
+    yield* controller.stream;
+  } finally {
+    await subA.cancel();
+    await subB.cancel();
+    await controller.close();
+  }
+}
 
 /// MVP — 가족의 첫 번째 아기를 활성 아기로 사용.
 final currentBabyProvider = Provider<Baby?>((ref) {

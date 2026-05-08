@@ -28,7 +28,9 @@ const FeedingSchema = z
   .optional();
 
 const DiaperSchema = z
-  .object({ kind: z.enum(['pee', 'poop', 'both']) })
+  .object({
+    kind: z.enum(['pee', 'poop', 'both']).nullable().optional(),
+  })
   .nullable()
   .optional();
 
