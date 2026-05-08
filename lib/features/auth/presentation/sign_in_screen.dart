@@ -33,7 +33,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
                 size: 72, color: Color(0xFFFFAFA3)),
             const SizedBox(height: 8),
             const Text(
-              '보미다이어리',
+              "유담's Diary",
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 16),
