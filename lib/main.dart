@@ -25,7 +25,7 @@ Future<void> main() async {
 
   tzdata.initializeTimeZones();
   final localTz = await FlutterTimezone.getLocalTimezone();
-  tz.setLocalLocation(tz.getLocation(localTz));
+  tz.setLocalLocation(tz.getLocation(localTz.identifier));
 
   if (!kDebugMode) {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;

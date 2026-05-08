@@ -33,10 +33,10 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _onFeeding(BuildContext context, WidgetRef ref) async {
     final family = ref.read(currentFamilyIdProvider);
     final baby = ref.read(currentBabyProvider);
-    final user = ref.read(currentAppUserProvider).valueOrNull;
+    final user = ref.read(currentAppUserProvider).value;
     if (family == null || baby == null || user == null) return;
 
-    final active = ref.read(activeFeedingTimerProvider).valueOrNull;
+    final active = ref.read(activeFeedingTimerProvider).value;
     if (active != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('이미 수유중이에요')),
@@ -68,10 +68,10 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _onSleep(BuildContext context, WidgetRef ref) async {
     final family = ref.read(currentFamilyIdProvider);
     final baby = ref.read(currentBabyProvider);
-    final user = ref.read(currentAppUserProvider).valueOrNull;
+    final user = ref.read(currentAppUserProvider).value;
     if (family == null || baby == null || user == null) return;
 
-    final active = ref.read(activeSleepTimerProvider).valueOrNull;
+    final active = ref.read(activeSleepTimerProvider).value;
     if (active != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('이미 잠자는 중이에요')),
@@ -95,8 +95,8 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _stopFeeding(BuildContext context, WidgetRef ref) async {
     final family = ref.read(currentFamilyIdProvider);
     final baby = ref.read(currentBabyProvider);
-    final user = ref.read(currentAppUserProvider).valueOrNull;
-    final active = ref.read(activeFeedingTimerProvider).valueOrNull;
+    final user = ref.read(currentAppUserProvider).value;
+    final active = ref.read(activeFeedingTimerProvider).value;
     if (family == null || baby == null || user == null || active == null) {
       return;
     }
@@ -126,7 +126,7 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _stopSleep(BuildContext context, WidgetRef ref) async {
     final family = ref.read(currentFamilyIdProvider);
     final baby = ref.read(currentBabyProvider);
-    final user = ref.read(currentAppUserProvider).valueOrNull;
+    final user = ref.read(currentAppUserProvider).value;
     if (family == null || baby == null || user == null) return;
     final ok = await ref.read(timerRepositoryProvider).stopTimer(
           familyId: family,
@@ -145,9 +145,9 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final baby = ref.watch(currentBabyProvider);
-    final today = ref.watch(todayEventsProvider).valueOrNull ?? const [];
-    final activeFeed = ref.watch(activeFeedingTimerProvider).valueOrNull;
-    final activeSleep = ref.watch(activeSleepTimerProvider).valueOrNull;
+    final today = ref.watch(todayEventsProvider).value ?? const [];
+    final activeFeed = ref.watch(activeFeedingTimerProvider).value;
+    final activeSleep = ref.watch(activeSleepTimerProvider).value;
 
     final lastFeed = today
         .where((e) => e.type == CareEventType.feeding)

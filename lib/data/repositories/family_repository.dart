@@ -92,7 +92,7 @@ class FamilyState {
 /// `users/{uid}.familyId` · `families/{id}` · `families/{id}/babies` 세 스트림
 /// 어느 하나라도 변경되면 새로 emit. 아기 추가/삭제 시에도 즉시 반영된다.
 final currentFamilyStateProvider = StreamProvider<FamilyState>((ref) {
-  final me = ref.watch(currentAppUserProvider).valueOrNull;
+  final me = ref.watch(currentAppUserProvider).value;
   if (me?.familyId == null) {
     return Stream.value(const FamilyState());
   }
@@ -147,11 +147,11 @@ Stream<R> _combine2<A, B, R>(
 
 /// MVP — 가족의 첫 번째 아기를 활성 아기로 사용.
 final currentBabyProvider = Provider<Baby?>((ref) {
-  final state = ref.watch(currentFamilyStateProvider).valueOrNull;
+  final state = ref.watch(currentFamilyStateProvider).value;
   if (state == null || state.babies.isEmpty) return null;
   return state.babies.first;
 });
 
 final currentFamilyIdProvider = Provider<String?>((ref) {
-  return ref.watch(currentFamilyStateProvider).valueOrNull?.familyId;
+  return ref.watch(currentFamilyStateProvider).value?.familyId;
 });

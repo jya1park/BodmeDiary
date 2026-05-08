@@ -37,7 +37,7 @@ class _PhotoReviewScreenState extends ConsumerState<PhotoReviewScreen> {
   Future<void> _save(OcrDraft draft) async {
     final familyId = ref.read(currentFamilyIdProvider);
     final baby = ref.read(currentBabyProvider);
-    final user = ref.read(currentAppUserProvider).valueOrNull;
+    final user = ref.read(currentAppUserProvider).value;
     if (familyId == null || baby == null || user == null) return;
     setState(() => _saving = true);
 

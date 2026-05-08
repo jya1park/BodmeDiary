@@ -32,7 +32,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return loc == Routes.splash ? null : Routes.splash;
       }
 
-      final user = auth.valueOrNull;
+      final user = auth.value;
       final isSignedIn = user != null;
 
       if (!isSignedIn) {
@@ -40,7 +40,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // 로그인 됨 — family 는 회원가입 시 자동 생성됨. 아직 도착 전이면 splash 유지.
-      final family = familyState.valueOrNull;
+      final family = familyState.value;
       if (family == null) {
         return loc == Routes.splash ? null : Routes.splash;
       }

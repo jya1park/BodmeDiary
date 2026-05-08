@@ -14,8 +14,8 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final me = ref.watch(currentAppUserProvider).valueOrNull;
-    final family = ref.watch(currentFamilyStateProvider).valueOrNull;
+    final me = ref.watch(currentAppUserProvider).value;
+    final family = ref.watch(currentFamilyStateProvider).value;
     final baby = ref.watch(currentBabyProvider);
 
     return Scaffold(

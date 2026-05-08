@@ -18,7 +18,7 @@ class DiaperModal extends ConsumerWidget {
   ) async {
     final familyId = ref.read(currentFamilyIdProvider);
     final baby = ref.read(currentBabyProvider);
-    final user = ref.read(currentAppUserProvider).valueOrNull;
+    final user = ref.read(currentAppUserProvider).value;
     if (familyId == null || baby == null || user == null) return;
 
     final now = DateTime.now();

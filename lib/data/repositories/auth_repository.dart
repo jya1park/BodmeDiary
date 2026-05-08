@@ -120,7 +120,7 @@ final authStateProvider = StreamProvider<User?>((ref) {
 
 /// 현재 로그인 사용자의 Firestore `users/{uid}` 도큐먼트를 스트리밍.
 final currentAppUserProvider = StreamProvider<AppUser?>((ref) {
-  final auth = ref.watch(authStateProvider).valueOrNull;
+  final auth = ref.watch(authStateProvider).value;
   if (auth == null) return Stream.value(null);
   final fs = ref.watch(firestoreProvider);
   return fs
