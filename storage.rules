@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // 손글씨 일지 OCR 사진은 가족 구성원만
+    match /families/{familyId}/babies/{babyId}/ocr/{photoId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid in firestore.get(
+             /databases/(default)/documents/families/$(familyId)
+           ).data.memberUids;
+    }
+
+    // 아기 프로필 사진
+    match /families/{familyId}/babies/{babyId}/profile/{photoId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid in firestore.get(
+             /databases/(default)/documents/families/$(familyId)
+           ).data.memberUids;
+    }
+  }
+}

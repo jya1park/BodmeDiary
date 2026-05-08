@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function isFamilyMember(familyId) {
+      return isSignedIn()
+        && uid() in get(/databases/$(database)/documents/families/$(familyId)).data.memberUids;
+    }
+
+    // ─────────────────────────────────────────────
+    // users/{uid}
+    // ─────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isSignedIn() && uid() == userId;
+      allow create: if isSignedIn() && uid() == userId;
+      // familyId 변경은 Cloud Function (admin) 에서만 허용
+      allow update: if isSignedIn() && uid() == userId
+        && (
+          !('familyId' in request.resource.data.diff(resource.data).affectedKeys())
+          || resource.data.familyId == null
+        );
+      allow delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // families/{familyId}
+    // ─────────────────────────────────────────────
+    match /families/{familyId} {
+      allow read: if isFamilyMember(familyId);
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUid == uid()
+        && request.resource.data.memberUids == [uid()];
+      // 멤버 추가는 Cloud Function 에서만. owner/memberUids 변경 차단.
+      allow update: if isFamilyMember(familyId)
+        && request.resource.data.memberUids == resource.data.memberUids
+        && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if false;
+
+      // ─────────────────────────────────────────────
+      // babies/{babyId}
+      // ─────────────────────────────────────────────
+      match /babies/{babyId} {
+        allow read, write: if isFamilyMember(familyId);
+
+        match /events/{eventId} {
+          allow read: if isFamilyMember(familyId);
+          allow create: if isFamilyMember(familyId)
+            && request.resource.data.createdByUid == uid();
+          allow update, delete: if isFamilyMember(familyId);
+        }
+
+        match /activeTimers/{timerType} {
+          allow read: if isFamilyMember(familyId);
+          // 자연 mutex: docId 가 type 과 일치해야 함
+          allow create: if isFamilyMember(familyId)
+            && request.resource.data.startedByUid == uid()
+            && request.resource.data.type == timerType
+            && (timerType == 'feeding' || timerType == 'sleep');
+          allow delete: if isFamilyMember(familyId);
+          allow update: if false; // create-then-delete only
+        }
+      }
+
+      match /inviteCodes/{code} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if false; // Cloud Function admin 만
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // inviteCodeIndex/{code} — server only
+    // ─────────────────────────────────────────────
+    match /inviteCodeIndex/{code} {
+      allow read, write: if false;
+    }
+  }
+}
