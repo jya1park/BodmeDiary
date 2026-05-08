@@ -4,7 +4,7 @@
 
 - **플랫폼**: Flutter (iOS + Android)
 - **백엔드**: Firebase (Auth · Firestore · Storage · Cloud Functions, 리전 `asia-northeast3`)
-- **OCR**: Gemini Vision (Cloud Functions 경유)
+- **OCR**: OpenAI Vision (`gpt-4o-mini`, Cloud Functions 경유)
 - **로케일**: 한국어 (ko_KR)
 
 ## 핵심 기능
@@ -13,7 +13,7 @@
 2. **가족 공유** — 6자리 초대코드로 부모/조부모가 같은 아기 데이터 실시간 공유
 3. **타이머** — 수유·잠은 시작·종료 타이머. Firestore 트랜잭션 기반 mutex 로 동시 시작 충돌 방지
 4. **히스토리** — 일/주/월 막대그래프 (수유 횟수·소변·배변·수면 시간)
-5. **사진 OCR** — 손글씨 일지 촬영 → Gemini Vision 분석 → 사용자 확인 → 일괄 저장
+5. **사진 OCR** — 손글씨 일지 촬영 → OpenAI Vision 분석 → 사용자 확인 → 일괄 저장
 
 ## 디렉토리 구조
 
@@ -47,8 +47,8 @@ cd functions
 npm install
 cd ..
 
-# 4. (옵션) Gemini API 키 등록
-firebase functions:secrets:set GEMINI_API_KEY
+# 4. OpenAI API 키 등록 (OCR 기능 사용 시 필수)
+firebase functions:secrets:set OPENAI_API_KEY
 
 # 5. 보안 규칙·함수 배포
 firebase deploy --only firestore:rules,storage,functions
@@ -67,7 +67,7 @@ flutter run
 | 3 | 수유·잠 라이브 타이머 (가족 동기화) |
 | 4 | 히스토리 일/주/월 차트 |
 | 5 | 가족 초대 코드 |
-| 6 | 사진 OCR (Gemini Vision) |
+| 6 | 사진 OCR (OpenAI Vision · gpt-4o-mini) |
 | 7 | 폴리시 (Crashlytics, 정리, 설정) |
 
 ## 라이선스

@@ -1,10 +1,10 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 
-import { GEMINI_API_KEY, OCR_DAILY_QUOTA, REGION } from '../config';
+import { OCR_DAILY_QUOTA, OPENAI_API_KEY, REGION } from '../config';
 import { assertAuth, assertFamilyMember } from '../lib/auth';
 import { db, FieldValue, storage, Timestamp } from '../lib/firestore';
-import { callGemini } from './geminiClient';
+import { callOpenAi } from './openaiClient';
 
 const Input = z.object({
   familyId: z.string().min(1),
@@ -96,7 +96,7 @@ async function checkOcrQuota(uid: string): Promise<void> {
 }
 
 export const parseHandwrittenLog = onCall(
-  { region: REGION, secrets: [GEMINI_API_KEY] },
+  { region: REGION, secrets: [OPENAI_API_KEY] },
   async (req) => {
     const uid = assertAuth(req);
     const input = Input.parse(req.data);
@@ -114,20 +114,20 @@ export const parseHandwrittenLog = onCall(
     const [meta] = await file.getMetadata();
     const mimeType = meta.contentType || 'image/jpeg';
 
-    // Gemini 호출
+    // OpenAI 호출
     let text: string;
     try {
-      const res = await callGemini(GEMINI_API_KEY.value(), bytes, mimeType);
+      const res = await callOpenAi(OPENAI_API_KEY.value(), bytes, mimeType);
       text = res.text;
     } catch (e) {
-      throw new HttpsError('internal', `Gemini 호출 실패: ${(e as Error).message}`);
+      throw new HttpsError('internal', `OpenAI 호출 실패: ${(e as Error).message}`);
     }
 
     let parsed: z.infer<typeof ResponseSchema>;
     try {
       parsed = ResponseSchema.parse(JSON.parse(text));
     } catch (e) {
-      throw new HttpsError('internal', `Gemini 응답 파싱 실패: ${(e as Error).message}`);
+      throw new HttpsError('internal', `OCR 응답 파싱 실패: ${(e as Error).message}`);
     }
 
     const date = parsed.date ?? input.assumedDate ?? null;
