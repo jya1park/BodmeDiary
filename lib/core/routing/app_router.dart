@@ -8,6 +8,7 @@ import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/history/presentation/history_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/manual/presentation/manual_records_screen.dart';
 import '../../features/onboarding/presentation/add_baby_screen.dart';
 import '../../features/photo_ocr/presentation/photo_capture_screen.dart';
 import '../../features/photo_ocr/presentation/photo_review_screen.dart';
@@ -96,6 +97,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.familyInvite,
         builder: (_, __) => const FamilyInviteScreen(),
+      ),
+      GoRoute(
+        path: Routes.manualRecords,
+        builder: (_, __) => const ManualRecordsScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

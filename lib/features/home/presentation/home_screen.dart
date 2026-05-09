@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/routes.dart';
 import '../../../core/widgets/active_timer_banner.dart';
-import '../../../core/widgets/elapsed_since_chip.dart';
+import '../../../core/widgets/elapsed_text.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../data/models/baby.dart';
 import '../../../data/models/care_event.dart';
@@ -15,17 +15,6 @@ import '../../../data/repositories/family_repository.dart';
 import '../../../data/repositories/timer_repository.dart';
 import '../../diaper/presentation/diaper_modal.dart';
 import '../../feeding/presentation/feeding_stop_sheet.dart';
-
-/// 수유 칩의 부가 텍스트.
-/// - 분유 (`feedingAmountMl != null`) → "120ml"
-/// - 모유 + 유축량 설정 → "약 ~46ml" (예측)
-/// - 그 외 → null (시간만 표시)
-String? _feedTrailing(CareEvent? feed, Baby? baby) {
-  if (feed == null) return null;
-  if (feed.feedingAmountMl != null) return '${feed.feedingAmountMl}ml';
-  final estimate = estimateBreastMilkMl(feed.duration, baby?.pumpRateMlPer10Min);
-  return estimate == null ? null : '약 ~${estimate}ml';
-}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -107,7 +96,7 @@ class HomeScreen extends ConsumerWidget {
       showDragHandle: true,
       builder: (_) => FeedingStopSheet(startedAt: active.startedAt),
     );
-    if (result == null || !result.saved) return; // 사용자가 닫음 — 타이머 유지
+    if (result == null || !result.saved) return;
 
     final ok = await ref.read(timerRepositoryProvider).stopTimer(
           familyId: family,
@@ -156,7 +145,8 @@ class HomeScreen extends ConsumerWidget {
     final lastPee = today
         .where((e) =>
             e.type == CareEventType.diaper &&
-            (e.diaperKind == DiaperKind.pee || e.diaperKind == DiaperKind.both))
+            (e.diaperKind == DiaperKind.pee ||
+                e.diaperKind == DiaperKind.both))
         .sorted((a, b) => b.startAt.compareTo(a.startAt))
         .firstOrNull;
     final lastPoop = today
@@ -173,8 +163,13 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(baby == null ? '보미다이어리' : '${baby.name} 의 하루'),
+        title: Text(baby == null ? "유담's Diary" : '${baby.name} 의 하루'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_note),
+            tooltip: '기록 편집',
+            onPressed: () => context.push(Routes.manualRecords),
+          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.push(Routes.settings),
@@ -209,35 +204,7 @@ class HomeScreen extends ConsumerWidget {
                   onStop: () => _stopSleep(context, ref),
                 ),
               ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ElapsedSinceChip(
-                  label: '수유',
-                  icon: Icons.local_drink,
-                  since: lastFeed?.startAt,
-                  trailing: _feedTrailing(lastFeed, baby),
-                ),
-                ElapsedSinceChip(
-                  label: '소변',
-                  icon: Icons.water_drop_outlined,
-                  since: lastPee?.startAt,
-                ),
-                ElapsedSinceChip(
-                  label: '배변',
-                  icon: Icons.eco_outlined,
-                  since: lastPoop?.startAt,
-                ),
-                ElapsedSinceChip(
-                  label: '수면',
-                  icon: Icons.bedtime,
-                  since: lastSleep?.endAt,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 4),
             PrimaryActionButton(
               label: activeFeed == null ? '수유 시작' : '수유 종료',
               icon: Icons.local_drink,
@@ -245,9 +212,10 @@ class HomeScreen extends ConsumerWidget {
               onTap: () => activeFeed == null
                   ? _onFeeding(context, ref)
                   : _stopFeeding(context, ref),
-              subtitle: activeFeed == null
-                  ? '버튼을 누르면 시간 카운트 시작'
-                  : '종료 시 분유 양도 함께 기록 가능',
+              subtitle: ElapsedText(
+                since: lastFeed?.startAt,
+                suffix: _feedAmountSuffix(lastFeed, baby),
+              ),
             ),
             const SizedBox(height: 12),
             PrimaryActionButton(
@@ -255,7 +223,10 @@ class HomeScreen extends ConsumerWidget {
               icon: Icons.baby_changing_station,
               color: const Color(0xFFFFCD78),
               onTap: () => _onDiaper(context, ref),
-              subtitle: '소변 / 배변 / 둘다',
+              subtitle: _DiaperMeta(
+                lastPee: lastPee?.startAt,
+                lastPoop: lastPoop?.startAt,
+              ),
             ),
             const SizedBox(height: 12),
             PrimaryActionButton(
@@ -265,7 +236,11 @@ class HomeScreen extends ConsumerWidget {
               onTap: () => activeSleep == null
                   ? _onSleep(context, ref)
                   : _stopSleep(context, ref),
-              subtitle: '시작–종료 타이머',
+              subtitle: ElapsedText(
+                since: lastSleep?.endAt,
+                prefix: '깬지 ',
+                emptyText: '기록 없음',
+              ),
             ),
             const SizedBox(height: 24),
             if (baby == null)
@@ -281,6 +256,32 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  String? _feedAmountSuffix(CareEvent? feed, Baby? baby) {
+    if (feed == null) return null;
+    if (feed.feedingAmountMl != null) return '${feed.feedingAmountMl}ml';
+    final estimate = estimateBreastMilkMl(feed.duration, baby?.pumpRateMlPer10Min);
+    return estimate == null ? null : '약 ~${estimate}ml';
+  }
+}
+
+/// 기저귀 버튼 안에 들어갈 "소변 X 전 / 배변 Y 전" 두 줄 텍스트.
+class _DiaperMeta extends StatelessWidget {
+  const _DiaperMeta({this.lastPee, this.lastPoop});
+  final DateTime? lastPee;
+  final DateTime? lastPoop;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ElapsedText(since: lastPee, prefix: '소변 ', emptyText: '소변 기록 없음'),
+        ElapsedText(since: lastPoop, prefix: '배변 ', emptyText: '배변 기록 없음'),
+      ],
     );
   }
 }

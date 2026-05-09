@@ -14,4 +14,5 @@ class Routes {
   static const settings = '/settings';
   static const familyInvite = '/settings/family-invite';
   static const photoReview = '/photo/review';
+  static const manualRecords = '/manual-records';
 }
