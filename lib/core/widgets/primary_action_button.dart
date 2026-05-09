@@ -57,19 +57,19 @@ class PrimaryActionButton extends StatelessWidget {
               // 2) 콘텐츠
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                    const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
                 child: Row(
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: 72,
+                      height: 72,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.25),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(icon, size: 32, color: Colors.white),
+                      child: Icon(icon, size: 40, color: Colors.white),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 20),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,17 +79,18 @@ class PrimaryActionButton extends StatelessWidget {
                             label,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 20,
+                              fontSize: 24,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           if (subtitle != null) ...[
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 8),
                             DefaultTextStyle(
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.95),
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w500,
+                                height: 1.4,
                               ),
                               child: subtitle!,
                             ),
@@ -98,7 +99,7 @@ class PrimaryActionButton extends StatelessWidget {
                       ),
                     ),
                     const Icon(Icons.chevron_right,
-                        color: Colors.white, size: 28),
+                        color: Colors.white, size: 32),
                   ],
                 ),
               ),

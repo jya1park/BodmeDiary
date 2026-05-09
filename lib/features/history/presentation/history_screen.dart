@@ -109,6 +109,7 @@ class _RangeView extends ConsumerWidget {
               title: '수면 시간 (시간)',
               color: const Color(0xFF7C8DBA),
               data: [for (final a in agg) (a.dayKey, a.sleepHours)],
+              valueFormatter: (v) => v.toStringAsFixed(1),
             ),
           ],
         );
