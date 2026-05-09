@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Family;
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/routing/routes.dart';
+import '../../../core/time/day_boundary.dart';
 import '../../../core/widgets/active_timer_banner.dart';
 import '../../../core/widgets/elapsed_text.dart';
 import '../../../core/widgets/primary_action_button.dart';
@@ -130,13 +132,24 @@ class HomeScreen extends ConsumerWidget {
     }
   }
 
+  void _editRecords(BuildContext context) {
+    context.push(Routes.manualRecords);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final baby = ref.watch(currentBabyProvider);
-    final today = ref.watch(todayEventsProvider).value ?? const [];
+    final allRecent = ref.watch(todayEventsProvider).value ?? const [];
     final activeFeed = ref.watch(activeFeedingTimerProvider).value;
     final activeSleep = ref.watch(activeSleepTimerProvider).value;
+
+    // 오늘 (baby timezone 기준 00시 이후) 이벤트만 추림
+    final todayKey =
+        baby == null ? null : localDayKey(DateTime.now(), baby.timezone);
+    final today = todayKey == null
+        ? const <CareEvent>[]
+        : allRecent.where((e) => e.localDayKey == todayKey).toList();
 
     final lastFeed = today
         .where((e) => e.type == CareEventType.feeding)
@@ -161,15 +174,15 @@ class HomeScreen extends ConsumerWidget {
         .sorted((a, b) => b.endAt.compareTo(a.endAt))
         .firstOrNull;
 
+    // 오늘 누적 수유량 (모유는 유축량 기반 추정 포함)
+    final dailyMl = _computeDailyFeedingMl(today, baby);
+    final target = AppConfig.defaultDailyFeedingTargetMl;
+    final progress = (dailyMl / target).clamp(0.0, 1.0);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(baby == null ? "유담's Diary" : '${baby.name} 의 하루'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_note),
-            tooltip: '기록 편집',
-            onPressed: () => context.push(Routes.manualRecords),
-          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.push(Routes.settings),
@@ -209,12 +222,16 @@ class HomeScreen extends ConsumerWidget {
               label: activeFeed == null ? '수유 시작' : '수유 종료',
               icon: Icons.local_drink,
               color: const Color(0xFFFFAFA3),
+              progress: progress,
               onTap: () => activeFeed == null
                   ? _onFeeding(context, ref)
                   : _stopFeeding(context, ref),
-              subtitle: ElapsedText(
-                since: lastFeed?.startAt,
-                suffix: _feedAmountSuffix(lastFeed, baby),
+              onLongPress: () => _editRecords(context),
+              subtitle: _FeedingSubtitle(
+                lastFeed: lastFeed,
+                baby: baby,
+                dailyMl: dailyMl,
+                targetMl: target,
               ),
             ),
             const SizedBox(height: 12),
@@ -223,6 +240,7 @@ class HomeScreen extends ConsumerWidget {
               icon: Icons.baby_changing_station,
               color: const Color(0xFFFFCD78),
               onTap: () => _onDiaper(context, ref),
+              onLongPress: () => _editRecords(context),
               subtitle: _DiaperMeta(
                 lastPee: lastPee?.startAt,
                 lastPoop: lastPoop?.startAt,
@@ -236,13 +254,23 @@ class HomeScreen extends ConsumerWidget {
               onTap: () => activeSleep == null
                   ? _onSleep(context, ref)
                   : _stopSleep(context, ref),
+              onLongPress: () => _editRecords(context),
               subtitle: ElapsedText(
                 since: lastSleep?.endAt,
                 prefix: '깬지 ',
-                emptyText: '기록 없음',
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                '버튼을 길게 누르면 기록 편집',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             if (baby == null)
               Card(
                 child: Padding(
@@ -258,16 +286,59 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  String? _feedAmountSuffix(CareEvent? feed, Baby? baby) {
+/// 오늘 누적 수유량 계산. 분유는 입력값, 모유는 유축량 기반 추정값을 합산.
+int _computeDailyFeedingMl(List<CareEvent> todayEvents, Baby? baby) {
+  var total = 0;
+  for (final e in todayEvents) {
+    if (e.type != CareEventType.feeding) continue;
+    if (e.feedingAmountMl != null) {
+      total += e.feedingAmountMl!;
+    } else {
+      final est =
+          estimateBreastMilkMl(e.duration, baby?.pumpRateMlPer10Min);
+      if (est != null) total += est;
+    }
+  }
+  return total;
+}
+
+class _FeedingSubtitle extends StatelessWidget {
+  const _FeedingSubtitle({
+    required this.lastFeed,
+    required this.baby,
+    required this.dailyMl,
+    required this.targetMl,
+  });
+
+  final CareEvent? lastFeed;
+  final Baby? baby;
+  final int dailyMl;
+  final int targetMl;
+
+  String? _lastSuffix() {
+    final feed = lastFeed;
     if (feed == null) return null;
     if (feed.feedingAmountMl != null) return '${feed.feedingAmountMl}ml';
-    final estimate = estimateBreastMilkMl(feed.duration, baby?.pumpRateMlPer10Min);
-    return estimate == null ? null : '약 ~${estimate}ml';
+    final est =
+        estimateBreastMilkMl(feed.duration, baby?.pumpRateMlPer10Min);
+    return est == null ? null : '약 ~${est}ml';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('오늘 ${dailyMl}ml / ${targetMl}ml'),
+        ElapsedText(since: lastFeed?.startAt, suffix: _lastSuffix()),
+      ],
+    );
   }
 }
 
-/// 기저귀 버튼 안에 들어갈 "소변 X 전 / 배변 Y 전" 두 줄 텍스트.
 class _DiaperMeta extends StatelessWidget {
   const _DiaperMeta({this.lastPee, this.lastPoop});
   final DateTime? lastPee;

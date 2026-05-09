@@ -12,7 +12,7 @@ class BodmeDiaryApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
-      title: '보미다이어리',
+      title: "유담's Diary",
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       routerConfig: router,

@@ -13,4 +13,8 @@ class AppConfig {
 
   /// 이미지 다운스케일 최대 변 길이 (픽셀).
   static const int ocrImageMaxEdge = 1600;
+
+  /// 수유 진척도 표시용 일일 목표량 (ml). 100% 채움 = 이 값에 도달.
+  /// 신생아 표준 가이드 (~150ml/kg/day · 4kg 기준) 근처 라운드 값.
+  static const int defaultDailyFeedingTargetMl = 800;
 }

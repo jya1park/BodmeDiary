@@ -11,7 +11,7 @@ class SplashScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '보미다이어리',
+              "유담's Diary",
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
             ),
             SizedBox(height: 24),

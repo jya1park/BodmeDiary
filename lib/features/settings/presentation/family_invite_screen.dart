@@ -105,7 +105,7 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: () => Share.share(
-                          '보미다이어리 가족 초대코드: $code\n'
+                          "유담's Diary 가족 초대코드: $code\n"
                           '앱에서 [초대코드 입력] 으로 합류하세요.',
                         ),
                         icon: const Icon(Icons.share),
