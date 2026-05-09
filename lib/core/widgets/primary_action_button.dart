@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// 홈 화면의 큰 액션 버튼 (수유·기저귀·잠).
 /// [onLongPress] 가 있으면 길게 누르기로 추가 동작 (예: 기록 편집).
-/// [progress] (0.0–1.0) 가 있으면 좌→우 채움 애니메이션 (예: 오늘 누적 진척도).
+/// [progress] (0.0–1.0) 가 있으면 하→상 으로 채움 애니메이션 (예: 오늘 누적 진척도).
 class PrimaryActionButton extends StatelessWidget {
   const PrimaryActionButton({
     required this.label,
@@ -26,28 +26,35 @@ class PrimaryActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filled = progress?.clamp(0.0, 1.0);
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: Material(
-        color: color.withValues(alpha: filled == null ? 1.0 : 0.55),
+        // progress 가 있을 때는 본체를 흐리게 → 채워진 부분이 진하게 대비
+        color: color.withValues(alpha: filled == null ? 1.0 : 0.45),
         child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
           child: Stack(
             children: [
+              // 1) 하→상 세로 채움
               if (filled != null && filled > 0)
                 Positioned.fill(
-                  child: AnimatedAlign(
-                    alignment: Alignment.centerLeft,
-                    duration: const Duration(milliseconds: 400),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 400),
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: filled),
+                      duration: const Duration(milliseconds: 500),
                       curve: Curves.easeOut,
-                      width: MediaQuery.of(context).size.width * filled,
-                      color: color,
+                      builder: (_, v, __) => FractionallySizedBox(
+                        heightFactor: v,
+                        widthFactor: 1.0,
+                        child: ColoredBox(color: color),
+                      ),
                     ),
                   ),
                 ),
+              // 2) 콘텐츠
               Padding(
                 padding:
                     const EdgeInsets.symmetric(vertical: 24, horizontal: 20),

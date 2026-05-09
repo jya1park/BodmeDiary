@@ -144,12 +144,19 @@ class HomeScreen extends ConsumerWidget {
     final activeFeed = ref.watch(activeFeedingTimerProvider).value;
     final activeSleep = ref.watch(activeSleepTimerProvider).value;
 
-    // 오늘 (baby timezone 기준 00시 이후) 이벤트만 추림
+    // 오늘 / 어제 (baby timezone 기준) 이벤트 분리
+    final now = DateTime.now();
     final todayKey =
-        baby == null ? null : localDayKey(DateTime.now(), baby.timezone);
+        baby == null ? null : localDayKey(now, baby.timezone);
+    final yesterdayKey = baby == null
+        ? null
+        : localDayKey(now.subtract(const Duration(days: 1)), baby.timezone);
     final today = todayKey == null
         ? const <CareEvent>[]
         : allRecent.where((e) => e.localDayKey == todayKey).toList();
+    final yesterday = yesterdayKey == null
+        ? const <CareEvent>[]
+        : allRecent.where((e) => e.localDayKey == yesterdayKey).toList();
 
     final lastFeed = today
         .where((e) => e.type == CareEventType.feeding)
@@ -174,9 +181,14 @@ class HomeScreen extends ConsumerWidget {
         .sorted((a, b) => b.endAt.compareTo(a.endAt))
         .firstOrNull;
 
-    // 오늘 누적 수유량 (모유는 유축량 기반 추정 포함)
+    // 누적 수유량: 모유는 유축량 기반 추정 포함
     final dailyMl = _computeDailyFeedingMl(today, baby);
-    final target = AppConfig.defaultDailyFeedingTargetMl;
+    final yesterdayMl = _computeDailyFeedingMl(yesterday, baby);
+
+    // 게이지 max = 어제 총량. 어제 데이터 없으면 기본 800ml.
+    final hasYesterday = yesterdayMl > 0;
+    final target =
+        hasYesterday ? yesterdayMl : AppConfig.defaultDailyFeedingTargetMl;
     final progress = (dailyMl / target).clamp(0.0, 1.0);
 
     return Scaffold(
@@ -232,6 +244,7 @@ class HomeScreen extends ConsumerWidget {
                 baby: baby,
                 dailyMl: dailyMl,
                 targetMl: target,
+                hasYesterday: hasYesterday,
               ),
             ),
             const SizedBox(height: 12),
@@ -310,12 +323,14 @@ class _FeedingSubtitle extends StatelessWidget {
     required this.baby,
     required this.dailyMl,
     required this.targetMl,
+    required this.hasYesterday,
   });
 
   final CareEvent? lastFeed;
   final Baby? baby;
   final int dailyMl;
   final int targetMl;
+  final bool hasYesterday;
 
   String? _lastSuffix() {
     final feed = lastFeed;
@@ -328,11 +343,12 @@ class _FeedingSubtitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compareLabel = hasYesterday ? '어제' : '기본';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('오늘 ${dailyMl}ml / ${targetMl}ml'),
+        Text('오늘 ${dailyMl}ml · $compareLabel ${targetMl}ml'),
         ElapsedText(since: lastFeed?.startAt, suffix: _lastSuffix()),
       ],
     );
