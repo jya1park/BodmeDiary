@@ -14,7 +14,13 @@ import 'firebase_options.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Android 는 google-services 플러그인이 네이티브에서 자동 초기화하므로
+  // 중복 호출 가드. iOS 는 명시 호출 필요.
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
   await FirebaseAppCheck.instance.activate(
     androidProvider:
