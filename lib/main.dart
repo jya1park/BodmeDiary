@@ -15,11 +15,14 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Android 는 google-services 플러그인이 네이티브에서 자동 초기화하므로
-  // 중복 호출 가드. iOS 는 명시 호출 필요.
-  if (Firebase.apps.isEmpty) {
+  // duplicate-app 예외가 날 수 있다. 그 경우는 이미 초기화된 것이라 무시.
+  // iOS 는 명시 호출이 필요하므로 try 안에서 그대로 호출.
+  try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
   }
 
   await FirebaseAppCheck.instance.activate(
