@@ -101,6 +101,7 @@ class _ActiveTimerBannerState extends State<ActiveTimerBanner> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
@@ -133,11 +134,22 @@ class _ActiveTimerBannerState extends State<ActiveTimerBanner> {
                     ],
                   ],
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  '${formatTimer(elapsed)} · ${widget.startedByName}님 시작',
+                  formatTimer(elapsed),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                    height: 1.1,
+                  ),
+                ),
+                Text(
+                  '${widget.startedByName}님 시작',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 11,
                   ),
                 ),
               ],
