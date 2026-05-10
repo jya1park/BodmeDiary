@@ -125,6 +125,7 @@ class HomeScreen extends ConsumerWidget {
           type: CareEventType.feeding,
           stoppedByUid: user.uid,
           feedingAmountMl: result.amountMl,
+          note: result.note,
         );
     if (!ok && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,13 +143,14 @@ class HomeScreen extends ConsumerWidget {
       return;
     }
 
-    final action = await showModalBottomSheet<SleepStopAction>(
+    final result = await showModalBottomSheet<SleepStopResult>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => SleepStopSheet(startedAt: active.startedAt),
     );
-    if (action == null) return; // dismiss
-    if (action == SleepStopAction.cancel) {
+    if (result == null) return; // dismiss
+    if (result.action == SleepStopAction.cancel) {
       await ref.read(timerRepositoryProvider).cancelTimer(
             familyId: family,
             babyId: baby.id,
@@ -167,6 +169,7 @@ class HomeScreen extends ConsumerWidget {
           baby: baby,
           type: CareEventType.sleep,
           stoppedByUid: user.uid,
+          note: result.note,
         );
     if (!ok && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

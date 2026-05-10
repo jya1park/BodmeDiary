@@ -31,31 +31,40 @@ class FeedingStopResult {
     required this.saved,
     required this.cancelled,
     this.amountMl,
+    this.note,
   });
 
-  factory FeedingStopResult.save({int? amountMl}) =>
-      FeedingStopResult(saved: true, cancelled: false, amountMl: amountMl);
+  factory FeedingStopResult.save({int? amountMl, String? note}) =>
+      FeedingStopResult(
+          saved: true, cancelled: false, amountMl: amountMl, note: note);
   factory FeedingStopResult.cancel() =>
       const FeedingStopResult(saved: false, cancelled: true);
 
   final bool saved;
   final bool cancelled;
   final int? amountMl;
+  final String? note;
 }
 
 class _FeedingStopSheetState extends State<FeedingStopSheet> {
   final _amount = TextEditingController();
+  final _note = TextEditingController();
 
   @override
   void dispose() {
     _amount.dispose();
+    _note.dispose();
     super.dispose();
   }
 
   void _save() {
     final raw = _amount.text.trim();
     final ml = raw.isEmpty ? null : int.tryParse(raw);
-    Navigator.of(context).pop(FeedingStopResult.save(amountMl: ml));
+    final noteText = _note.text.trim();
+    Navigator.of(context).pop(FeedingStopResult.save(
+      amountMl: ml,
+      note: noteText.isEmpty ? null : noteText,
+    ));
   }
 
   Future<void> _cancel() async {
@@ -150,6 +159,19 @@ class _FeedingStopSheetState extends State<FeedingStopSheet> {
               suffixText: 'ml',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.local_drink),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _note,
+            maxLines: 2,
+            maxLength: 200,
+            textInputAction: TextInputAction.newline,
+            decoration: const InputDecoration(
+              labelText: '메모 (선택)',
+              hintText: '특이사항을 적어두세요',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.edit_note),
             ),
           ),
           const SizedBox(height: 16),

@@ -64,7 +64,7 @@ class CareEvent {
       source: _sourceFrom(d['source'] as String?),
       feedingAmountMl: (feeding?['amountMl'] as num?)?.toInt(),
       diaperKind: _diaperFrom(diaper?['kind'] as String?),
-      note: (diaper?['note'] ?? sleep?['note']) as String?,
+      note: (feeding?['note'] ?? diaper?['note'] ?? sleep?['note']) as String?,
     );
   }
 
@@ -82,6 +82,7 @@ class CareEvent {
     if (type == CareEventType.feeding) {
       m['feeding'] = {
         if (feedingAmountMl != null) 'amountMl': feedingAmountMl,
+        if (note != null) 'note': note,
       };
     } else if (type == CareEventType.diaper) {
       m['diaper'] = {

@@ -68,6 +68,7 @@ class EventsRepository {
       'feeding': event.type == CareEventType.feeding
           ? {
               if (event.feedingAmountMl != null) 'amountMl': event.feedingAmountMl,
+              if (event.note != null) 'note': event.note,
             }
           : FieldValue.delete(),
       'diaper': event.type == CareEventType.diaper

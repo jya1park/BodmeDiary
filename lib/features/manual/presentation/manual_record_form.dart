@@ -28,6 +28,7 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
   late DateTime _startAt;
   late DateTime _endAt;
   final _amountCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController();
   bool _saving = false;
 
   bool get _isEdit => widget.existing != null;
@@ -44,6 +45,9 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
       if (existing.feedingAmountMl != null) {
         _amountCtrl.text = '${existing.feedingAmountMl}';
       }
+      if (existing.note != null) {
+        _noteCtrl.text = existing.note!;
+      }
     } else {
       _type = CareEventType.feeding;
       _diaperKind = DiaperKind.pee;
@@ -56,6 +60,7 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
   @override
   void dispose() {
     _amountCtrl.dispose();
+    _noteCtrl.dispose();
     super.dispose();
   }
 
@@ -99,6 +104,8 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
       final amount = _amountCtrl.text.trim().isEmpty
           ? null
           : int.tryParse(_amountCtrl.text.trim());
+      final noteText = _noteCtrl.text.trim();
+      final note = noteText.isEmpty ? null : noteText;
 
       if (_isEdit) {
         // 편집 — 동일 ID 유지
@@ -112,6 +119,7 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
           source: widget.existing!.source,
           feedingAmountMl: _type == CareEventType.feeding ? amount : null,
           diaperKind: _type == CareEventType.diaper ? _diaperKind : null,
+          note: note,
         );
         await ref.read(eventsRepositoryProvider).updateEvent(
               familyId: familyId,
@@ -130,6 +138,7 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
           source: CareEventSource.manual,
           feedingAmountMl: _type == CareEventType.feeding ? amount : null,
           diaperKind: _type == CareEventType.diaper ? _diaperKind : null,
+          note: note,
         );
         if (_type == CareEventType.feeding) {
           await ref.read(eventsRepositoryProvider).addOrMergeFeeding(
@@ -271,7 +280,20 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
                 ),
               ),
             ],
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _noteCtrl,
+              maxLines: 2,
+              maxLength: 200,
+              textInputAction: TextInputAction.newline,
+              decoration: const InputDecoration(
+                labelText: '메모 (선택)',
+                hintText: '특이사항을 적어두세요',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.edit_note),
+              ),
+            ),
+            const SizedBox(height: 8),
             FilledButton(
               onPressed: _saving ? null : _save,
               child: Text(_saving

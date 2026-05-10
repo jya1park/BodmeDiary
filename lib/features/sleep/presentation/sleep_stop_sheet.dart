@@ -3,15 +3,36 @@ import 'package:flutter/material.dart';
 import '../../../core/time/duration_format.dart';
 
 /// 잠 종료 시 띄우는 바텀시트.
-/// - 저장: SleepStopAction.save (이벤트 생성)
-/// - 취소: SleepStopAction.cancel (활성 타이머만 삭제, 기록 X)
+/// - 저장: SleepStopResult(action: save, note: ...)
+/// - 취소: SleepStopResult(action: cancel)
 /// - dismiss: null
-class SleepStopSheet extends StatelessWidget {
+class SleepStopSheet extends StatefulWidget {
   const SleepStopSheet({required this.startedAt, super.key});
 
   final DateTime startedAt;
 
-  Future<void> _confirmCancel(BuildContext context) async {
+  @override
+  State<SleepStopSheet> createState() => _SleepStopSheetState();
+}
+
+class SleepStopResult {
+  const SleepStopResult({required this.action, this.note});
+  final SleepStopAction action;
+  final String? note;
+}
+
+enum SleepStopAction { save, cancel }
+
+class _SleepStopSheetState extends State<SleepStopSheet> {
+  final _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmCancel() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -30,18 +51,32 @@ class SleepStopSheet extends StatelessWidget {
         ],
       ),
     );
-    if (ok == true && context.mounted) {
-      Navigator.of(context).pop(SleepStopAction.cancel);
+    if (ok == true && mounted) {
+      Navigator.of(context)
+          .pop(const SleepStopResult(action: SleepStopAction.cancel));
     }
+  }
+
+  void _save() {
+    final n = _note.text.trim();
+    Navigator.of(context).pop(SleepStopResult(
+      action: SleepStopAction.save,
+      note: n.isEmpty ? null : n,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final elapsed = DateTime.now().difference(startedAt);
+    final elapsed = DateTime.now().difference(widget.startedAt);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        8,
+        20,
+        24 + MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -80,12 +115,25 @@ class SleepStopSheet extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _note,
+            maxLines: 2,
+            maxLength: 200,
+            textInputAction: TextInputAction.newline,
+            decoration: const InputDecoration(
+              labelText: '메모 (선택)',
+              hintText: '특이사항을 적어두세요',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.edit_note),
+            ),
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => _confirmCancel(context),
+                  onPressed: _confirmCancel,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
@@ -98,8 +146,7 @@ class SleepStopSheet extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: FilledButton(
-                  onPressed: () =>
-                      Navigator.of(context).pop(SleepStopAction.save),
+                  onPressed: _save,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(48),
                   ),
@@ -113,5 +160,3 @@ class SleepStopSheet extends StatelessWidget {
     );
   }
 }
-
-enum SleepStopAction { save, cancel }

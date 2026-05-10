@@ -127,7 +127,13 @@ class ManualRecordsScreen extends ConsumerWidget {
                 child: ListTile(
                   leading: Icon(_iconFor(e.type), color: _colorFor(e.type)),
                   title: Text(_describe(e)),
-                  subtitle: Text(_subtitle(e)),
+                  subtitle: Text(
+                    e.note == null
+                        ? _subtitle(e)
+                        : '${_subtitle(e)}\n📝 ${e.note}',
+                    maxLines: 3,
+                  ),
+                  isThreeLine: e.note != null,
                   onTap: () => _edit(context, ref, e),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
