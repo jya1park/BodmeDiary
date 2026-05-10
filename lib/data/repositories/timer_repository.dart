@@ -100,7 +100,11 @@ class TimerRepository {
       final activeSnap = await tx.get(activeRef);
       if (!activeSnap.exists) return false;
       final active = ActiveTimer.fromDoc(activeSnap);
-      final endAt = DateTime.now();
+      final now = DateTime.now();
+      // 일시정지 시간을 제외한 실효 종료시각.
+      // 일시정지 중에 종료하면 pausedAt 시점이 사실상 마지막 동작 시점.
+      final effective = active.effectiveElapsed(now);
+      final endAt = active.startedAt.add(effective);
 
       // 병합 분기 — 후보가 아직 존재하고 시간 조건이 그대로면 합침
       if (mergeRef != null) {
@@ -158,6 +162,48 @@ class TimerRepository {
     await _firestore
         .doc(FirestorePaths.activeTimer(familyId, babyId, type.name))
         .delete();
+  }
+
+  /// 일시정지 — pausedAt 을 현재 시각으로 설정. 이미 일시정지면 무시.
+  Future<void> pauseTimer({
+    required String familyId,
+    required String babyId,
+    required CareEventType type,
+  }) async {
+    final ref = _firestore
+        .doc(FirestorePaths.activeTimer(familyId, babyId, type.name));
+    await _firestore.runTransaction<void>((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+      final active = ActiveTimer.fromDoc(snap);
+      if (active.isPaused) return; // 이미 일시정지
+      tx.update(ref, {
+        'pausedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
+  /// 재개 — pauseAccumMs 에 (now - pausedAt) 가산 후 pausedAt 제거.
+  Future<void> resumeTimer({
+    required String familyId,
+    required String babyId,
+    required CareEventType type,
+  }) async {
+    final ref = _firestore
+        .doc(FirestorePaths.activeTimer(familyId, babyId, type.name));
+    await _firestore.runTransaction<void>((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+      final active = ActiveTimer.fromDoc(snap);
+      final pausedAt = active.pausedAt;
+      if (pausedAt == null) return; // 이미 동작중
+      final pausedFor =
+          DateTime.now().difference(pausedAt).inMilliseconds;
+      tx.update(ref, {
+        'pausedAt': FieldValue.delete(),
+        'pauseAccumMs': active.pauseAccumMs + (pausedFor < 0 ? 0 : pausedFor),
+      });
+    });
   }
 }
 

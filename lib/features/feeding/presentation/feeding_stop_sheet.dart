@@ -6,13 +6,21 @@ import '../../../core/time/duration_format.dart';
 /// 수유 종료 시 띄우는 바텀시트.
 ///
 /// 총 수유 시간을 보여주고 (선택) 분유 양을 입력받는다. 비워두면 모유.
+/// 일시정지 중이면 그 시점까지의 실효 시간을 표시 (얼어붙음).
 /// - 저장: [FeedingStopResult] saved=true (이벤트 생성)
 /// - 취소: [FeedingStopResult] cancelled=true (활성 타이머만 삭제, 기록 X)
 /// - 사용자가 dismiss(스와이프): null 반환 → 호출부에서 무시 (타이머 유지)
 class FeedingStopSheet extends StatefulWidget {
-  const FeedingStopSheet({required this.startedAt, super.key});
+  const FeedingStopSheet({
+    required this.startedAt,
+    this.pausedAt,
+    this.pauseAccumMs = 0,
+    super.key,
+  });
 
   final DateTime startedAt;
+  final DateTime? pausedAt;
+  final int pauseAccumMs;
 
   @override
   State<FeedingStopSheet> createState() => _FeedingStopSheetState();
@@ -77,7 +85,10 @@ class _FeedingStopSheetState extends State<FeedingStopSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final elapsed = DateTime.now().difference(widget.startedAt);
+    final reference = widget.pausedAt ?? DateTime.now();
+    final ms = reference.difference(widget.startedAt).inMilliseconds -
+        widget.pauseAccumMs;
+    final elapsed = Duration(milliseconds: ms < 0 ? 0 : ms);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(

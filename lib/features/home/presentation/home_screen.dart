@@ -97,7 +97,11 @@ class HomeScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => FeedingStopSheet(startedAt: active.startedAt),
+      builder: (_) => FeedingStopSheet(
+        startedAt: active.startedAt,
+        pausedAt: active.pausedAt,
+        pauseAccumMs: active.pauseAccumMs,
+      ),
     );
     if (result == null) return; // dismiss
     if (result.cancelled) {
@@ -173,6 +177,28 @@ class HomeScreen extends ConsumerWidget {
 
   void _editRecords(BuildContext context) {
     context.push(Routes.manualRecords);
+  }
+
+  Future<void> _pauseFeeding(WidgetRef ref) async {
+    final family = ref.read(currentFamilyIdProvider);
+    final baby = ref.read(currentBabyProvider);
+    if (family == null || baby == null) return;
+    await ref.read(timerRepositoryProvider).pauseTimer(
+          familyId: family,
+          babyId: baby.id,
+          type: CareEventType.feeding,
+        );
+  }
+
+  Future<void> _resumeFeeding(WidgetRef ref) async {
+    final family = ref.read(currentFamilyIdProvider);
+    final baby = ref.read(currentBabyProvider);
+    if (family == null || baby == null) return;
+    await ref.read(timerRepositoryProvider).resumeTimer(
+          familyId: family,
+          babyId: baby.id,
+          type: CareEventType.feeding,
+        );
   }
 
   @override
@@ -253,6 +279,10 @@ class HomeScreen extends ConsumerWidget {
                   startedByName: activeFeed.startedByName,
                   color: const Color(0xFFFFAFA3),
                   icon: Icons.local_drink,
+                  pausedAt: activeFeed.pausedAt,
+                  pauseAccumMs: activeFeed.pauseAccumMs,
+                  onPause: () => _pauseFeeding(ref),
+                  onResume: () => _resumeFeeding(ref),
                   onStop: () => _stopFeeding(context, ref),
                 ),
               ),

@@ -66,7 +66,11 @@ service cloud.firestore {
             && request.resource.data.type == timerType
             && (timerType == 'feeding' || timerType == 'sleep');
           allow delete: if isFamilyMember(familyId);
-          allow update: if false; // create-then-delete only
+          // 일시정지/재개를 위한 update 허용 — 단 type/startedByUid/startedAt 불변
+          allow update: if isFamilyMember(familyId)
+            && request.resource.data.type == resource.data.type
+            && request.resource.data.startedByUid == resource.data.startedByUid
+            && request.resource.data.startedAt == resource.data.startedAt;
         }
       }
 
