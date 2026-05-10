@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Family;
 import '../../../core/time/day_boundary.dart';
 import '../../../data/repositories/events_repository.dart';
 import '../../../data/repositories/family_repository.dart';
+import '../../manual/presentation/event_list_view.dart';
 import '../application/aggregation.dart';
 import 'widgets/history_charts.dart';
 
@@ -83,6 +84,21 @@ class _RangeView extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('오류: $e')),
       data: (events) {
+        // 일 탭 — 막대그래프 대신 편집 가능한 이벤트 목록
+        if (days == 1) {
+          // 최신순 정렬 (가장 최근이 위)
+          final sorted = [...events]
+            ..sort((a, b) => b.startAt.compareTo(a.startAt));
+          return EventListView(
+            events: sorted,
+            familyId: familyId,
+            babyId: babyId,
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+            emptyText: '오늘 기록이 없어요\n홈 큰 버튼으로 기록을 시작하세요',
+          );
+        }
+
+        // 주·월 — 막대그래프
         final agg = aggregateByDay(events, dayKeys);
         return ListView(
           padding: const EdgeInsets.all(16),
