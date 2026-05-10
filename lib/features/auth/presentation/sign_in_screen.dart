@@ -29,8 +29,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
         child: Column(
           children: [
             const SizedBox(height: 32),
-            const Icon(Icons.child_friendly,
-                size: 72, color: Color(0xFFFFAFA3)),
+            Image.asset(
+              'assets/app_icon.png',
+              width: 96,
+              height: 96,
+            ),
             const SizedBox(height: 8),
             const Text(
               "유담's Diary",
