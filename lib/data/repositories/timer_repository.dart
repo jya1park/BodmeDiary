@@ -61,6 +61,8 @@ class TimerRepository {
   }
 
   /// 종료 — 트랜잭션으로 활성타이머 → CareEvent 로 변환 후 활성문서 삭제.
+  /// 수유 type 일 때 마지막 수유 종료시각과의 간격이 [feedingMergeWindow]
+  /// 이내면 기존 이벤트를 확장 (1회로 통합).
   /// 이미 다른 사람이 종료해서 활성문서가 없으면 false.
   Future<bool> stopTimer({
     required String familyId,
@@ -69,18 +71,67 @@ class TimerRepository {
     required String stoppedByUid,
     int? feedingAmountMl,
     String? note,
+    Duration feedingMergeWindow = const Duration(minutes: 30),
   }) async {
-    final activeRef =
-        _firestore.doc(FirestorePaths.activeTimer(familyId, baby.id, type.name));
-    final eventId = newId();
-    final eventRef =
-        _firestore.doc(FirestorePaths.event(familyId, baby.id, eventId));
+    final activeRef = _firestore
+        .doc(FirestorePaths.activeTimer(familyId, baby.id, type.name));
+
+    // 수유면 병합 후보 미리 조회 (트랜잭션 내에서 query 불가, doc read 만 가능)
+    DocumentReference<Map<String, dynamic>>? mergeRef;
+    if (type == CareEventType.feeding) {
+      final recent = await _firestore
+          .collection(FirestorePaths.events(familyId, baby.id))
+          .where('type', isEqualTo: 'feeding')
+          .orderBy('endAt', descending: true)
+          .limit(1)
+          .get();
+      if (recent.docs.isNotEmpty) {
+        final lastEnd =
+            (recent.docs.first.data()['endAt'] as Timestamp?)?.toDate();
+        if (lastEnd != null &&
+            DateTime.now().difference(lastEnd) <= feedingMergeWindow) {
+          mergeRef = _firestore.doc(FirestorePaths.event(
+              familyId, baby.id, recent.docs.first.id));
+        }
+      }
+    }
 
     return _firestore.runTransaction<bool>((tx) async {
-      final snap = await tx.get(activeRef);
-      if (!snap.exists) return false;
-      final active = ActiveTimer.fromDoc(snap);
+      final activeSnap = await tx.get(activeRef);
+      if (!activeSnap.exists) return false;
+      final active = ActiveTimer.fromDoc(activeSnap);
       final endAt = DateTime.now();
+
+      // 병합 분기 — 후보가 아직 존재하고 시간 조건이 그대로면 합침
+      if (mergeRef != null) {
+        final existingSnap = await tx.get(mergeRef);
+        if (existingSnap.exists) {
+          final existing = CareEvent.fromDoc(existingSnap);
+          if (active.startedAt.isAfter(existing.endAt) &&
+              active.startedAt.difference(existing.endAt) <=
+                  feedingMergeWindow) {
+            final hasAny = existing.feedingAmountMl != null ||
+                feedingAmountMl != null;
+            tx.update(mergeRef, {
+              'endAt': Timestamp.fromDate(endAt),
+              'durationMs':
+                  endAt.difference(existing.startAt).inMilliseconds,
+              'feeding': {
+                if (hasAny)
+                  'amountMl':
+                      (existing.feedingAmountMl ?? 0) + (feedingAmountMl ?? 0),
+              },
+            });
+            tx.delete(activeRef);
+            return true;
+          }
+        }
+      }
+
+      // 신규 이벤트 생성 (병합 안 함)
+      final eventId = newId();
+      final eventRef = _firestore
+          .doc(FirestorePaths.event(familyId, baby.id, eventId));
       final event = CareEvent(
         id: eventId,
         type: type,

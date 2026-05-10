@@ -95,11 +95,20 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
         diaperKind: _type == CareEventType.diaper ? _diaperKind : null,
       );
 
-      await ref.read(eventsRepositoryProvider).addEvent(
-            familyId: familyId,
-            baby: baby,
-            event: event,
-          );
+      // 수유는 30분 머지 윈도우 적용 — 마지막 수유와 30분 이내면 1회로 통합
+      if (_type == CareEventType.feeding) {
+        await ref.read(eventsRepositoryProvider).addOrMergeFeeding(
+              familyId: familyId,
+              baby: baby,
+              event: event,
+            );
+      } else {
+        await ref.read(eventsRepositoryProvider).addEvent(
+              familyId: familyId,
+              baby: baby,
+              event: event,
+            );
+      }
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
