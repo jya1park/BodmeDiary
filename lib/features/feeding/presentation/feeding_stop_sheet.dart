@@ -6,8 +6,9 @@ import '../../../core/time/duration_format.dart';
 /// 수유 종료 시 띄우는 바텀시트.
 ///
 /// 총 수유 시간을 보여주고 (선택) 분유 양을 입력받는다. 비워두면 모유.
-/// 사용자가 [Navigator.pop] 으로 닫으면 [FeedingStopResult.cancelled] 반환,
-/// 저장 버튼을 누르면 [FeedingStopResult.saved] 와 입력한 ml 값을 반환한다.
+/// - 저장: [FeedingStopResult] saved=true (이벤트 생성)
+/// - 취소: [FeedingStopResult] cancelled=true (활성 타이머만 삭제, 기록 X)
+/// - 사용자가 dismiss(스와이프): null 반환 → 호출부에서 무시 (타이머 유지)
 class FeedingStopSheet extends StatefulWidget {
   const FeedingStopSheet({required this.startedAt, super.key});
 
@@ -18,8 +19,19 @@ class FeedingStopSheet extends StatefulWidget {
 }
 
 class FeedingStopResult {
-  const FeedingStopResult({required this.saved, this.amountMl});
+  const FeedingStopResult({
+    required this.saved,
+    required this.cancelled,
+    this.amountMl,
+  });
+
+  factory FeedingStopResult.save({int? amountMl}) =>
+      FeedingStopResult(saved: true, cancelled: false, amountMl: amountMl);
+  factory FeedingStopResult.cancel() =>
+      const FeedingStopResult(saved: false, cancelled: true);
+
   final bool saved;
+  final bool cancelled;
   final int? amountMl;
 }
 
@@ -35,7 +47,31 @@ class _FeedingStopSheetState extends State<FeedingStopSheet> {
   void _save() {
     final raw = _amount.text.trim();
     final ml = raw.isEmpty ? null : int.tryParse(raw);
-    Navigator.of(context).pop(FeedingStopResult(saved: true, amountMl: ml));
+    Navigator.of(context).pop(FeedingStopResult.save(amountMl: ml));
+  }
+
+  Future<void> _cancel() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('수유 기록을 취소할까요?'),
+        content: const Text('이번 수유는 저장되지 않고 타이머만 종료됩니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('아니오'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('취소'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      Navigator.of(context).pop(FeedingStopResult.cancel());
+    }
   }
 
   @override
@@ -64,7 +100,7 @@ class _FeedingStopSheetState extends State<FeedingStopSheet> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 24),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFAFA3).withOpacity(0.12),
+              color: const Color(0xFFFFAFA3).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -106,9 +142,31 @@ class _FeedingStopSheetState extends State<FeedingStopSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          FilledButton(
-            onPressed: _save,
-            child: const Text('저장'),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _cancel,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  child: const Text('취소 (기록 안 함)'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: FilledButton(
+                  onPressed: _save,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  child: const Text('저장'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

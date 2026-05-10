@@ -17,6 +17,7 @@ import '../../../data/repositories/family_repository.dart';
 import '../../../data/repositories/timer_repository.dart';
 import '../../diaper/presentation/diaper_modal.dart';
 import '../../feeding/presentation/feeding_stop_sheet.dart';
+import '../../sleep/presentation/sleep_stop_sheet.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -98,7 +99,21 @@ class HomeScreen extends ConsumerWidget {
       showDragHandle: true,
       builder: (_) => FeedingStopSheet(startedAt: active.startedAt),
     );
-    if (result == null || !result.saved) return;
+    if (result == null) return; // dismiss
+    if (result.cancelled) {
+      await ref.read(timerRepositoryProvider).cancelTimer(
+            familyId: family,
+            babyId: baby.id,
+            type: CareEventType.feeding,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('수유 기록이 취소되었습니다')),
+        );
+      }
+      return;
+    }
+    if (!result.saved) return;
 
     final ok = await ref.read(timerRepositoryProvider).stopTimer(
           familyId: family,
@@ -118,7 +133,31 @@ class HomeScreen extends ConsumerWidget {
     final family = ref.read(currentFamilyIdProvider);
     final baby = ref.read(currentBabyProvider);
     final user = ref.read(currentAppUserProvider).value;
-    if (family == null || baby == null || user == null) return;
+    final active = ref.read(activeSleepTimerProvider).value;
+    if (family == null || baby == null || user == null || active == null) {
+      return;
+    }
+
+    final action = await showModalBottomSheet<SleepStopAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SleepStopSheet(startedAt: active.startedAt),
+    );
+    if (action == null) return; // dismiss
+    if (action == SleepStopAction.cancel) {
+      await ref.read(timerRepositoryProvider).cancelTimer(
+            familyId: family,
+            babyId: baby.id,
+            type: CareEventType.sleep,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('잠 기록이 취소되었습니다')),
+        );
+      }
+      return;
+    }
+
     final ok = await ref.read(timerRepositoryProvider).stopTimer(
           familyId: family,
           baby: baby,
@@ -160,7 +199,7 @@ class HomeScreen extends ConsumerWidget {
 
     final lastFeed = today
         .where((e) => e.type == CareEventType.feeding)
-        .sorted((a, b) => b.startAt.compareTo(a.startAt))
+        .sorted((a, b) => b.endAt.compareTo(a.endAt))
         .firstOrNull;
     final lastPee = today
         .where((e) =>
@@ -349,7 +388,7 @@ class _FeedingSubtitle extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('오늘 ${dailyMl}ml · $compareLabel ${targetMl}ml'),
-        ElapsedText(since: lastFeed?.startAt, suffix: _lastSuffix()),
+        ElapsedText(since: lastFeed?.endAt, suffix: _lastSuffix()),
       ],
     );
   }
