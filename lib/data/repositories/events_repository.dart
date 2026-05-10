@@ -50,6 +50,43 @@ class EventsRepository {
     await _firestore.doc(FirestorePaths.event(familyId, babyId, eventId)).delete();
   }
 
+  /// 기존 이벤트 수정. type 이 바뀌면 다른 타입의 nested 필드는 제거.
+  /// createdByUid 는 갱신하지 않는다 (원작자 유지).
+  Future<void> updateEvent({
+    required String familyId,
+    required String babyId,
+    required CareEvent event,
+  }) async {
+    final m = <String, dynamic>{
+      'type': event.type.name,
+      'startAt': Timestamp.fromDate(event.startAt),
+      'endAt': Timestamp.fromDate(event.endAt),
+      'durationMs': event.endAt.difference(event.startAt).inMilliseconds,
+      'localDayKey': event.localDayKey,
+      'updatedAt': FieldValue.serverTimestamp(),
+      // 비활성 타입은 명시적으로 제거 (type 변경 시 정리)
+      'feeding': event.type == CareEventType.feeding
+          ? {
+              if (event.feedingAmountMl != null) 'amountMl': event.feedingAmountMl,
+            }
+          : FieldValue.delete(),
+      'diaper': event.type == CareEventType.diaper
+          ? {
+              if (event.diaperKind != null) 'kind': event.diaperKind!.name,
+              if (event.note != null) 'note': event.note,
+            }
+          : FieldValue.delete(),
+      'sleep': event.type == CareEventType.sleep
+          ? {
+              if (event.note != null) 'note': event.note,
+            }
+          : FieldValue.delete(),
+    };
+    await _firestore
+        .doc(FirestorePaths.event(familyId, babyId, event.id))
+        .update(m);
+  }
+
   /// 수유 이벤트 추가/병합. 마지막 수유 종료시각과 새 이벤트 시작시각 사이가
   /// [mergeWindow] 이내면 기존 이벤트의 endAt·durationMs·feeding.amountMl 를
   /// 확장하여 1회로 처리. 아니면 일반 추가.

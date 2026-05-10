@@ -10,29 +10,47 @@ import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/events_repository.dart';
 import '../../../data/repositories/family_repository.dart';
 
-/// 수동으로 이벤트를 추가하는 바텀시트.
-/// 종류 (수유/기저귀/잠) 선택 → 시간/세부정보 입력 → 저장.
+/// 수동 기록 추가/편집 바텀시트.
+/// [existing] 이 있으면 편집 모드 (기존 값으로 프리필 + updateEvent 호출).
+/// 없으면 신규 추가 모드 (수유는 30분 머지 윈도우 적용).
 class ManualRecordForm extends ConsumerStatefulWidget {
-  const ManualRecordForm({super.key});
+  const ManualRecordForm({super.key, this.existing});
+
+  final CareEvent? existing;
 
   @override
   ConsumerState<ManualRecordForm> createState() => _ManualRecordFormState();
 }
 
 class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
-  CareEventType _type = CareEventType.feeding;
-  DiaperKind _diaperKind = DiaperKind.pee;
+  late CareEventType _type;
+  late DiaperKind _diaperKind;
   late DateTime _startAt;
   late DateTime _endAt;
   final _amountCtrl = TextEditingController();
   bool _saving = false;
 
+  bool get _isEdit => widget.existing != null;
+
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _startAt = now.subtract(const Duration(minutes: 20));
-    _endAt = now;
+    final existing = widget.existing;
+    if (existing != null) {
+      _type = existing.type;
+      _startAt = existing.startAt;
+      _endAt = existing.endAt;
+      _diaperKind = existing.diaperKind ?? DiaperKind.pee;
+      if (existing.feedingAmountMl != null) {
+        _amountCtrl.text = '${existing.feedingAmountMl}';
+      }
+    } else {
+      _type = CareEventType.feeding;
+      _diaperKind = DiaperKind.pee;
+      final now = DateTime.now();
+      _startAt = now.subtract(const Duration(minutes: 20));
+      _endAt = now;
+    }
   }
 
   @override
@@ -76,43 +94,61 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
 
     setState(() => _saving = true);
     try {
-      // 기저귀는 시작=종료
       final start = _startAt;
       final end = _type == CareEventType.diaper ? _startAt : _endAt;
       final amount = _amountCtrl.text.trim().isEmpty
           ? null
           : int.tryParse(_amountCtrl.text.trim());
 
-      final event = CareEvent(
-        id: newId(),
-        type: _type,
-        startAt: start,
-        endAt: end,
-        localDayKey: localDayKey(start, baby.timezone),
-        createdByUid: user.uid,
-        source: CareEventSource.manual,
-        feedingAmountMl: _type == CareEventType.feeding ? amount : null,
-        diaperKind: _type == CareEventType.diaper ? _diaperKind : null,
-      );
-
-      // 수유는 30분 머지 윈도우 적용 — 마지막 수유와 30분 이내면 1회로 통합
-      if (_type == CareEventType.feeding) {
-        await ref.read(eventsRepositoryProvider).addOrMergeFeeding(
+      if (_isEdit) {
+        // 편집 — 동일 ID 유지
+        final updated = CareEvent(
+          id: widget.existing!.id,
+          type: _type,
+          startAt: start,
+          endAt: end,
+          localDayKey: localDayKey(start, baby.timezone),
+          createdByUid: widget.existing!.createdByUid,
+          source: widget.existing!.source,
+          feedingAmountMl: _type == CareEventType.feeding ? amount : null,
+          diaperKind: _type == CareEventType.diaper ? _diaperKind : null,
+        );
+        await ref.read(eventsRepositoryProvider).updateEvent(
               familyId: familyId,
-              baby: baby,
-              event: event,
+              babyId: baby.id,
+              event: updated,
             );
       } else {
-        await ref.read(eventsRepositoryProvider).addEvent(
-              familyId: familyId,
-              baby: baby,
-              event: event,
-            );
+        // 신규 — 수유는 30분 머지 윈도우 적용
+        final created = CareEvent(
+          id: newId(),
+          type: _type,
+          startAt: start,
+          endAt: end,
+          localDayKey: localDayKey(start, baby.timezone),
+          createdByUid: user.uid,
+          source: CareEventSource.manual,
+          feedingAmountMl: _type == CareEventType.feeding ? amount : null,
+          diaperKind: _type == CareEventType.diaper ? _diaperKind : null,
+        );
+        if (_type == CareEventType.feeding) {
+          await ref.read(eventsRepositoryProvider).addOrMergeFeeding(
+                familyId: familyId,
+                baby: baby,
+                event: created,
+              );
+        } else {
+          await ref.read(eventsRepositoryProvider).addEvent(
+                familyId: familyId,
+                baby: baby,
+                event: created,
+              );
+        }
       }
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('기록이 추가되었습니다')),
+          SnackBar(content: Text(_isEdit ? '수정되었습니다' : '기록이 추가되었습니다')),
         );
       }
     } catch (e) {
@@ -146,9 +182,9 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 8),
-            const Text(
-              '기록 추가',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            Text(
+              _isEdit ? '기록 편집' : '기록 추가',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -173,8 +209,6 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
               onSelectionChanged: (s) => setState(() => _type = s.first),
             ),
             const SizedBox(height: 20),
-
-            // 기저귀: 종류 선택
             if (isDiaper) ...[
               const Text('기저귀 종류',
                   style: TextStyle(fontWeight: FontWeight.w600)),
@@ -191,8 +225,6 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
               ),
               const SizedBox(height: 20),
             ],
-
-            // 시작 시간
             Text(isDiaper ? '시간' : '시작 시간',
                 style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
@@ -205,8 +237,6 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
                 alignment: Alignment.centerLeft,
               ),
             ),
-
-            // 종료 시간 (수유·잠만)
             if (isFeeding || isSleep) ...[
               const SizedBox(height: 16),
               const Text('종료 시간',
@@ -222,8 +252,6 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
                 ),
               ),
             ],
-
-            // 분유 양 (수유만)
             if (isFeeding) ...[
               const SizedBox(height: 20),
               TextField(
@@ -243,11 +271,12 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
                 ),
               ),
             ],
-
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : _save,
-              child: Text(_saving ? '저장 중...' : '저장'),
+              child: Text(_saving
+                  ? '저장 중...'
+                  : (_isEdit ? '수정' : '저장')),
             ),
           ],
         ),

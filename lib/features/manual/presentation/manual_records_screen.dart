@@ -20,6 +20,19 @@ class ManualRecordsScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _edit(
+    BuildContext context,
+    WidgetRef ref,
+    CareEvent event,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => ManualRecordForm(existing: event),
+    );
+  }
+
   Future<void> _delete(
     BuildContext context,
     WidgetRef ref,
@@ -115,6 +128,7 @@ class ManualRecordsScreen extends ConsumerWidget {
                   leading: Icon(_iconFor(e.type), color: _colorFor(e.type)),
                   title: Text(_describe(e)),
                   subtitle: Text(_subtitle(e)),
+                  onTap: () => _edit(context, ref, e),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
                     onPressed: () => _delete(context, ref, e),
