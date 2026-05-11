@@ -61,7 +61,7 @@ class EventsRepository {
       'type': event.type.name,
       'startAt': Timestamp.fromDate(event.startAt),
       'endAt': Timestamp.fromDate(event.endAt),
-      'durationMs': event.endAt.difference(event.startAt).inMilliseconds,
+      'durationMs': event.durationMs,
       'localDayKey': event.localDayKey,
       'updatedAt': FieldValue.serverTimestamp(),
       // 비활성 타입은 명시적으로 제거 (type 변경 시 정리)
@@ -132,11 +132,13 @@ class EventsRepository {
         existing.feedingAmountMl != null || incoming.feedingAmountMl != null;
     final mergedAmount =
         (existing.feedingAmountMl ?? 0) + (incoming.feedingAmountMl ?? 0);
+    // 실제 수유시간 = 기존 실효 + 들어온 실효 (휴식 시간 제외)
+    final mergedDurationMs = existing.durationMs + incoming.durationMs;
     await _firestore
         .doc(FirestorePaths.event(familyId, babyId, existing.id))
         .update({
       'endAt': Timestamp.fromDate(incoming.endAt),
-      'durationMs': incoming.endAt.difference(existing.startAt).inMilliseconds,
+      'durationMs': mergedDurationMs,
       'feeding': {
         if (hasAnyAmount) 'amountMl': mergedAmount,
       },

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Family;
 import 'package:intl/intl.dart';
 
 import '../../../core/time/duration_format.dart';
+import '../../../data/models/active_event_synthesizer.dart';
 import '../../../data/models/care_event.dart';
 import '../../../data/repositories/events_repository.dart';
 import 'manual_record_form.dart';
@@ -88,6 +89,48 @@ class EventListView extends ConsumerWidget {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (_, i) {
         final e = events[i];
+        final isPseudo = isPseudoActiveEvent(e);
+
+        if (isPseudo) {
+          // 진행 중인 활성 타이머 — 편집·삭제 차단, 시각적으로 구분
+          return Container(
+            color: _colorFor(e.type).withValues(alpha: 0.08),
+            child: ListTile(
+              leading: Icon(_iconFor(e.type), color: _colorFor(e.type)),
+              title: Row(
+                children: [
+                  Expanded(child: Text(_describe(e))),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _colorFor(e.type),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      '진행중',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              subtitle: Text(_subtitle(e)),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content:
+                        Text('진행 중인 기록은 종료 후 편집할 수 있어요'),
+                  ),
+                );
+              },
+            ),
+          );
+        }
+
         return Dismissible(
           key: ValueKey(e.id),
           direction: DismissDirection.endToStart,

@@ -116,10 +116,12 @@ class TimerRepository {
                   feedingMergeWindow) {
             final hasAny = existing.feedingAmountMl != null ||
                 feedingAmountMl != null;
+            // 실제 수유시간 = 기존 실효 + 이번 실효 (휴식·일시정지 제외)
+            final mergedDurationMs =
+                existing.durationMs + effective.inMilliseconds;
             tx.update(mergeRef, {
               'endAt': Timestamp.fromDate(endAt),
-              'durationMs':
-                  endAt.difference(existing.startAt).inMilliseconds,
+              'durationMs': mergedDurationMs,
               'feeding': {
                 if (hasAny)
                   'amountMl':
@@ -141,6 +143,7 @@ class TimerRepository {
         type: type,
         startAt: active.startedAt,
         endAt: endAt,
+        durationMs: effective.inMilliseconds, // 일시정지 제외 실효 시간
         localDayKey: localDayKey(active.startedAt, baby.timezone),
         createdByUid: stoppedByUid,
         source: CareEventSource.timer,

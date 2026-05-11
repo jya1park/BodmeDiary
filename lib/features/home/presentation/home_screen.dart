@@ -9,6 +9,7 @@ import '../../../core/time/day_boundary.dart';
 import '../../../core/widgets/active_timer_banner.dart';
 import '../../../core/widgets/elapsed_text.dart';
 import '../../../core/widgets/primary_action_button.dart';
+import '../../../data/models/active_event_synthesizer.dart';
 import '../../../data/models/baby.dart';
 import '../../../data/models/care_event.dart';
 import '../../../data/repositories/auth_repository.dart';
@@ -220,11 +221,24 @@ class HomeScreen extends ConsumerWidget {
         ? null
         : localDayKey(now.subtract(const Duration(days: 1)), baby.timezone);
     final today = todayKey == null
-        ? const <CareEvent>[]
+        ? <CareEvent>[]
         : allRecent.where((e) => e.localDayKey == todayKey).toList();
     final yesterday = yesterdayKey == null
         ? const <CareEvent>[]
         : allRecent.where((e) => e.localDayKey == yesterdayKey).toList();
+
+    // 활성 수유·잠 타이머도 today 에 합쳐서 진행중인 기록이 즉시 반영되도록.
+    // (가족 동기화 + 히스토리·일일 누적량 실시간 반영)
+    if (baby != null) {
+      final pseudoFeed = activeTimerAsPseudoEvent(activeFeed, baby);
+      final pseudoSleep = activeTimerAsPseudoEvent(activeSleep, baby);
+      if (pseudoFeed != null && pseudoFeed.localDayKey == todayKey) {
+        today.add(pseudoFeed);
+      }
+      if (pseudoSleep != null && pseudoSleep.localDayKey == todayKey) {
+        today.add(pseudoSleep);
+      }
+    }
 
     final lastFeed = today
         .where((e) => e.type == CareEventType.feeding)
