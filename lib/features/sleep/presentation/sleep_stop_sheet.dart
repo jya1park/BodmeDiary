@@ -83,33 +83,39 @@ class _SleepStopSheetState extends State<SleepStopSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          const SizedBox(height: 8),
           const Text(
             '기상',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             decoration: BoxDecoration(
               color: const Color(0xFF7C8DBA).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Column(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '총 수면 시간',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: scheme.onSurfaceVariant,
-                  ),
+                Row(
+                  children: [
+                    Icon(Icons.bedtime_outlined,
+                        size: 18, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: 8),
+                    Text(
+                      '총 수면 시간',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 6),
                 Text(
                   formatTimer(elapsed),
                   style: const TextStyle(
-                    fontSize: 36,
+                    fontSize: 28,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.2,
                   ),
@@ -117,20 +123,21 @@ class _SleepStopSheetState extends State<SleepStopSheet> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           TextField(
             controller: _note,
             maxLines: 2,
             maxLength: 200,
             textInputAction: TextInputAction.newline,
             decoration: const InputDecoration(
+              isDense: true,
               labelText: '메모 (선택)',
               hintText: '특이사항을 적어두세요',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.edit_note),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
