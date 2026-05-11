@@ -77,10 +77,12 @@ class _SleepStopSheetState extends State<SleepStopSheet> {
         20,
         24 + MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: SingleChildScrollView(
+        // 키보드·플렉스모드 등 가용 높이 축소 시에도 [저장] 버튼이 보이도록.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           const SizedBox(height: 8),
           const Text(
             '기상',
@@ -156,6 +158,7 @@ class _SleepStopSheetState extends State<SleepStopSheet> {
             ],
           ),
         ],
+        ),
       ),
     );
   }
