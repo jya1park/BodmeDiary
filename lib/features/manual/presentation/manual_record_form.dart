@@ -98,7 +98,27 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
     );
   }
 
-  Future<void> _pickDateTime(bool isStart) async {
+  /// 시간만 변경 (날짜 유지). TimePicker.input 모드 → 키보드로 직접 HH:MM 입력.
+  Future<void> _pickTime(bool isStart) async {
+    final initial = isStart ? _startAt : _endAt;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+      initialEntryMode: TimePickerEntryMode.input,
+    );
+    if (time == null) return;
+    final picked = DateTime(
+      initial.year,
+      initial.month,
+      initial.day,
+      time.hour,
+      time.minute,
+    );
+    _applyTimeChange(isStart, picked);
+  }
+
+  /// 날짜만 변경 (시간 유지).
+  Future<void> _pickDate(bool isStart) async {
     final initial = isStart ? _startAt : _endAt;
     final date = await showDatePicker(
       context: context,
@@ -106,20 +126,30 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
+    if (date == null) return;
+    final picked = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      initial.hour,
+      initial.minute,
     );
-    if (time == null) return;
-    final picked =
-        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    _applyTimeChange(isStart, picked);
+  }
+
+  /// ±N분 빠른 조정.
+  void _nudge(bool isStart, int minutes) {
+    final base = isStart ? _startAt : _endAt;
+    _applyTimeChange(isStart, base.add(Duration(minutes: minutes)));
+  }
+
+  void _applyTimeChange(bool isStart, DateTime newValue) {
     setState(() {
       if (isStart) {
-        _startAt = picked;
+        _startAt = newValue;
         if (_endAt.isBefore(_startAt)) _endAt = _startAt;
       } else {
-        _endAt = picked;
+        _endAt = newValue;
         if (_endAt.isBefore(_startAt)) _startAt = _endAt;
       }
     });
@@ -309,31 +339,23 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
               ),
               const SizedBox(height: 20),
             ],
-            Text(isDiaper ? '시간' : '시작 시간',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => _pickDateTime(true),
-              icon: const Icon(Icons.calendar_today),
-              label: Text(fmt.format(_startAt)),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-                alignment: Alignment.centerLeft,
-              ),
+            _TimeFieldRow(
+              label: isDiaper ? '시간' : '시작 시간',
+              value: _startAt,
+              dateFormat: fmt,
+              onTapTime: () => _pickTime(true),
+              onTapDate: () => _pickDate(true),
+              onNudge: (m) => _nudge(true, m),
             ),
             if (isFeeding || isSleep) ...[
-              const SizedBox(height: 16),
-              const Text('종료 시간',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => _pickDateTime(false),
-                icon: const Icon(Icons.calendar_today),
-                label: Text(fmt.format(_endAt)),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                  alignment: Alignment.centerLeft,
-                ),
+              const SizedBox(height: 12),
+              _TimeFieldRow(
+                label: '종료 시간',
+                value: _endAt,
+                dateFormat: fmt,
+                onTapTime: () => _pickTime(false),
+                onTapDate: () => _pickDate(false),
+                onNudge: (m) => _nudge(false, m),
               ),
             ],
             if (isFeeding) ...[
@@ -378,6 +400,87 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 시간 입력 행: 라벨 + (시간 버튼 + 달력 아이콘) + (-5/-1/+1/+5분 빠른 조정).
+class _TimeFieldRow extends StatelessWidget {
+  const _TimeFieldRow({
+    required this.label,
+    required this.value,
+    required this.dateFormat,
+    required this.onTapTime,
+    required this.onTapDate,
+    required this.onNudge,
+  });
+
+  final String label;
+  final DateTime value;
+  final DateFormat dateFormat;
+  final VoidCallback onTapTime;
+  final VoidCallback onTapDate;
+  final void Function(int minutes) onNudge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onTapTime,
+                icon: const Icon(Icons.access_time),
+                label: Text(
+                  dateFormat.format(value),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                  alignment: Alignment.centerLeft,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 44,
+              height: 44,
+              child: OutlinedButton(
+                onPressed: onTapDate,
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Icon(Icons.calendar_month, size: 20),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            for (final m in const [-5, -1, 1, 5]) ...[
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => onNudge(m),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(36),
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    m > 0 ? '+$m분' : '$m분',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ),
+              if (m != 5) const SizedBox(width: 4),
+            ],
+          ],
+        ),
+      ],
     );
   }
 }
