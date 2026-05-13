@@ -7,6 +7,7 @@ import '../firebase/firebase_providers.dart';
 import '../firebase/firestore_paths.dart';
 import '../models/baby.dart';
 import '../models/care_event.dart';
+import '../models/feeding_note.dart';
 import 'family_repository.dart';
 
 class EventsRepository {
@@ -132,8 +133,13 @@ class EventsRepository {
         existing.feedingAmountMl != null || incoming.feedingAmountMl != null;
     final mergedAmount =
         (existing.feedingAmountMl ?? 0) + (incoming.feedingAmountMl ?? 0);
-    // 실제 수유시간 = 기존 실효 + 들어온 실효 (휴식 시간 제외)
     final mergedDurationMs = existing.durationMs + incoming.durationMs;
+    final mergedNote = mergedFeedingNote(
+      existingNote: existing.note,
+      existingDurationMs: existing.durationMs,
+      incomingNote: incoming.note,
+      incomingDurationMs: incoming.durationMs,
+    );
     await _firestore
         .doc(FirestorePaths.event(familyId, babyId, existing.id))
         .update({
@@ -141,8 +147,108 @@ class EventsRepository {
       'durationMs': mergedDurationMs,
       'feeding': {
         if (hasAnyAmount) 'amountMl': mergedAmount,
+        if (mergedNote != null) 'note': mergedNote,
       },
     });
+  }
+
+  /// 편집된 수유 이벤트의 30분 머지 후보 검색. 자기 자신은 제외.
+  /// - predecessor: endAt < [event].startAt 인 가장 최근 수유 (gap ≤ window)
+  /// - successor: startAt > [event].endAt 인 가장 이른 수유 (gap ≤ window)
+  /// 두 후보가 모두 있으면 더 가까운 쪽을 반환.
+  Future<CareEvent?> findFeedingMergeCandidate({
+    required String familyId,
+    required String babyId,
+    required CareEvent event,
+    Duration window = const Duration(minutes: 30),
+  }) async {
+    final col = _firestore.collection(FirestorePaths.events(familyId, babyId));
+
+    // 직전 수유 후보
+    final predSnap = await col
+        .where('type', isEqualTo: 'feeding')
+        .where('endAt', isLessThan: Timestamp.fromDate(event.startAt))
+        .orderBy('endAt', descending: true)
+        .limit(3)
+        .get();
+    CareEvent? predecessor;
+    for (final doc in predSnap.docs) {
+      if (doc.id == event.id) continue;
+      final cand = CareEvent.fromDoc(doc);
+      if (event.startAt.difference(cand.endAt) <= window) predecessor = cand;
+      break;
+    }
+
+    // 직후 수유 후보
+    final succSnap = await col
+        .where('type', isEqualTo: 'feeding')
+        .where('startAt', isGreaterThan: Timestamp.fromDate(event.endAt))
+        .orderBy('startAt')
+        .limit(3)
+        .get();
+    CareEvent? successor;
+    for (final doc in succSnap.docs) {
+      if (doc.id == event.id) continue;
+      final cand = CareEvent.fromDoc(doc);
+      if (cand.startAt.difference(event.endAt) <= window) successor = cand;
+      break;
+    }
+
+    if (predecessor == null) return successor;
+    if (successor == null) return predecessor;
+    // 둘 다 있으면 더 가까운 쪽
+    final predGap = event.startAt.difference(predecessor.endAt);
+    final succGap = successor.startAt.difference(event.endAt);
+    return predGap <= succGap ? predecessor : successor;
+  }
+
+  /// 두 수유 이벤트를 합침. [target] 에 [absorbed] 가 흡수됨.
+  /// - startAt = min, endAt = max
+  /// - durationMs 는 두 실효 시간의 합
+  /// - feedingAmountMl 은 둘 중 하나라도 있으면 합산
+  /// - note 는 둘 중 하나라도 있으면 합쳐서 보존 (개행 구분)
+  /// [absorbed] 는 삭제됨.
+  Future<void> mergeTwoFeedings({
+    required String familyId,
+    required String babyId,
+    required CareEvent target,
+    required CareEvent absorbed,
+  }) async {
+    final newStart =
+        target.startAt.isBefore(absorbed.startAt) ? target.startAt : absorbed.startAt;
+    final newEnd =
+        target.endAt.isAfter(absorbed.endAt) ? target.endAt : absorbed.endAt;
+    final newDurationMs = target.durationMs + absorbed.durationMs;
+    final hasAnyAmount =
+        target.feedingAmountMl != null || absorbed.feedingAmountMl != null;
+    final mergedAmount =
+        (target.feedingAmountMl ?? 0) + (absorbed.feedingAmountMl ?? 0);
+    final mergedNote = mergedFeedingNote(
+      existingNote: target.note,
+      existingDurationMs: target.durationMs,
+      incomingNote: absorbed.note,
+      incomingDurationMs: absorbed.durationMs,
+    );
+
+    final batch = _firestore.batch();
+    batch.update(
+      _firestore.doc(FirestorePaths.event(familyId, babyId, target.id)),
+      {
+        'startAt': Timestamp.fromDate(newStart),
+        'endAt': Timestamp.fromDate(newEnd),
+        'durationMs': newDurationMs,
+        'localDayKey': target.localDayKey,
+        'feeding': {
+          if (hasAnyAmount) 'amountMl': mergedAmount,
+          if (mergedNote != null) 'note': mergedNote,
+        },
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    );
+    batch.delete(
+      _firestore.doc(FirestorePaths.event(familyId, babyId, absorbed.id)),
+    );
+    await batch.commit();
   }
 
   /// 특정 [dayKeys] 범위의 이벤트 스트림 (시작순 정렬).

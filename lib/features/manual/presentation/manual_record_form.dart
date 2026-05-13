@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/time/day_boundary.dart';
 import '../../../core/utils/id.dart';
 import '../../../data/models/care_event.dart';
+import '../../../data/models/feeding_note.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/events_repository.dart';
 import '../../../data/repositories/family_repository.dart';
@@ -45,8 +46,14 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
       if (existing.feedingAmountMl != null) {
         _amountCtrl.text = '${existing.feedingAmountMl}';
       }
+      // 수유는 세션 로그가 합쳐진 note 일 수 있으므로 사용자 메모만 분리해서 프리필
       if (existing.note != null) {
-        _noteCtrl.text = existing.note!;
+        if (existing.type == CareEventType.feeding) {
+          final parts = parseFeedingNote(existing.note);
+          if (parts.userNote != null) _noteCtrl.text = parts.userNote!;
+        } else {
+          _noteCtrl.text = existing.note!;
+        }
       }
     } else {
       _type = CareEventType.feeding;
@@ -62,6 +69,33 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
     _amountCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
+  }
+
+  Future<bool?> _askMergeConfirmation(CareEvent candidate) async {
+    final fmt = DateFormat('M월 d일 HH:mm');
+    final candidateRange =
+        '${fmt.format(candidate.startAt)} – ${DateFormat('HH:mm').format(candidate.endAt)}';
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('한 회로 합칠까요?'),
+        content: Text(
+          '30분 이내에 다음 수유 기록이 있습니다.\n\n'
+          '$candidateRange\n\n'
+          '합치면 두 기록이 하나로 묶이고, 메모에 각 세션 시간이 누적됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('별도 기록'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('합치기'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickDateTime(bool isStart) async {
@@ -105,7 +139,16 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
           ? null
           : int.tryParse(_amountCtrl.text.trim());
       final noteText = _noteCtrl.text.trim();
-      final note = noteText.isEmpty ? null : noteText;
+      final userNote = noteText.isEmpty ? null : noteText;
+
+      // 수유 편집은 기존 세션 로그 + 새 사용자 메모로 다시 빌드
+      String? note;
+      if (_type == CareEventType.feeding && _isEdit) {
+        final existingParts = parseFeedingNote(widget.existing!.note);
+        note = buildFeedingNote(existingParts.sessions, userNote);
+      } else {
+        note = userNote;
+      }
 
       if (_isEdit) {
         // 편집 — 동일 ID 유지
@@ -121,6 +164,38 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
           diaperKind: _type == CareEventType.diaper ? _diaperKind : null,
           note: note,
         );
+
+        // 수유 편집 — 30분 안에 다른 수유 있으면 다이얼로그로 머지 확인
+        if (_type == CareEventType.feeding) {
+          final candidate =
+              await ref.read(eventsRepositoryProvider).findFeedingMergeCandidate(
+                    familyId: familyId,
+                    babyId: baby.id,
+                    event: updated,
+                  );
+          if (candidate != null && mounted) {
+            final shouldMerge = await _askMergeConfirmation(candidate);
+            if (shouldMerge == true) {
+              // candidate 에 흡수 — updated 의 in-memory 값이 그대로 반영됨
+              // (mergeTwoFeedings 가 absorbed 문서를 batch 삭제)
+              await ref.read(eventsRepositoryProvider).mergeTwoFeedings(
+                    familyId: familyId,
+                    babyId: baby.id,
+                    target: candidate,
+                    absorbed: updated,
+                  );
+              if (mounted) {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('두 수유 기록이 합쳐졌습니다')),
+                );
+              }
+              return;
+            }
+            // 아니오 → 일반 update 로 진행
+          }
+        }
+
         await ref.read(eventsRepositoryProvider).updateEvent(
               familyId: familyId,
               babyId: baby.id,

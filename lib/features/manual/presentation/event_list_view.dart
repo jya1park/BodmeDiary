@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/time/duration_format.dart';
 import '../../../data/models/active_event_synthesizer.dart';
 import '../../../data/models/care_event.dart';
+import '../../../data/models/feeding_note.dart';
 import '../../../data/repositories/events_repository.dart';
 import 'manual_record_form.dart';
 
@@ -148,10 +149,8 @@ class EventListView extends ConsumerWidget {
             leading: Icon(_iconFor(e.type), color: _colorFor(e.type)),
             title: Text(_describe(e)),
             subtitle: Text(
-              e.note == null
-                  ? _subtitle(e)
-                  : '${_subtitle(e)}\n📝 ${e.note}',
-              maxLines: 3,
+              _buildSubtitle(e),
+              maxLines: 4,
             ),
             isThreeLine: e.note != null,
             onTap: () => _edit(context, ref, e),
@@ -191,6 +190,24 @@ class EventListView extends ConsumerWidget {
     final fmt = DateFormat('M월 d일 HH:mm');
     if (e.startAt == e.endAt) return fmt.format(e.startAt);
     return '${fmt.format(e.startAt)} – ${DateFormat('HH:mm').format(e.endAt)}';
+  }
+
+  /// 시간 + 세션로그(수유만) + 사용자 메모를 줄바꿈으로 합쳐 표시.
+  String _buildSubtitle(CareEvent e) {
+    final lines = <String>[_subtitle(e)];
+    if (e.type == CareEventType.feeding && e.note != null) {
+      final parts = parseFeedingNote(e.note);
+      if (parts.sessions.isNotEmpty) {
+        lines.add(
+            '⏱ ${parts.sessions.map((m) => '$m분').join(' / ')}');
+      }
+      if (parts.userNote != null && parts.userNote!.isNotEmpty) {
+        lines.add('📝 ${parts.userNote}');
+      }
+    } else if (e.note != null) {
+      lines.add('📝 ${e.note}');
+    }
+    return lines.join('\n');
   }
 
   IconData _iconFor(CareEventType t) => switch (t) {

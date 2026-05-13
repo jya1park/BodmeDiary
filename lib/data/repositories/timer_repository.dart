@@ -8,6 +8,7 @@ import '../firebase/firestore_paths.dart';
 import '../models/active_timer.dart';
 import '../models/baby.dart';
 import '../models/care_event.dart';
+import '../models/feeding_note.dart';
 import 'family_repository.dart';
 
 /// 활성 타이머 시작/종료를 트랜잭션으로 처리. `activeTimers/{type}` 도큐먼트가
@@ -119,6 +120,13 @@ class TimerRepository {
             // 실제 수유시간 = 기존 실효 + 이번 실효 (휴식·일시정지 제외)
             final mergedDurationMs =
                 existing.durationMs + effective.inMilliseconds;
+            // 세션 로그 합치기 — 메모에 "수유 X분 / Y분 / ..." 형식으로 기록
+            final mergedNote = mergedFeedingNote(
+              existingNote: existing.note,
+              existingDurationMs: existing.durationMs,
+              incomingNote: note,
+              incomingDurationMs: effective.inMilliseconds,
+            );
             tx.update(mergeRef, {
               'endAt': Timestamp.fromDate(endAt),
               'durationMs': mergedDurationMs,
@@ -126,6 +134,7 @@ class TimerRepository {
                 if (hasAny)
                   'amountMl':
                       (existing.feedingAmountMl ?? 0) + (feedingAmountMl ?? 0),
+                if (mergedNote != null) 'note': mergedNote,
               },
             });
             tx.delete(activeRef);
