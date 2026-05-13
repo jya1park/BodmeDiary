@@ -7,7 +7,7 @@ export interface OcrCallResult {
   text: string;
 }
 
-/// gpt-4o-mini 비전 호출. JSON 모드로 강제. 파싱 실패 시 1회 재시도.
+/// OpenAI 비전 호출. JSON 모드로 강제. 파싱 실패 시 1회 재시도.
 export async function callOpenAi(
   apiKey: string,
   imageBytes: Buffer,

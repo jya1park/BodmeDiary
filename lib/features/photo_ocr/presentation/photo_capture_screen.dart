@@ -22,7 +22,7 @@ class PhotoCaptureScreen extends ConsumerWidget {
       source: source,
       maxWidth: AppConfig.ocrImageMaxEdge.toDouble(),
       maxHeight: AppConfig.ocrImageMaxEdge.toDouble(),
-      imageQuality: 85,
+      imageQuality: 95,
     );
     if (file == null) return;
     await ref.read(ocrControllerProvider.notifier).uploadAndParse(File(file.path));
@@ -58,11 +58,26 @@ class PhotoCaptureScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Gemini Vision 이 수유·기저귀·잠 기록을 자동으로 추출해\n사용자가 확인 후 저장합니다.',
+              'AI 가 수유·기저귀·잠 기록을 자동으로 추출해\n사용자가 확인 후 저장합니다.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
+            ),
+            const SizedBox(height: 24),
+            const _CaptureTip(
+              icon: Icons.wb_sunny_outlined,
+              text: '밝은 곳에서 촬영하세요',
+            ),
+            const SizedBox(height: 8),
+            const _CaptureTip(
+              icon: Icons.crop_free,
+              text: '한 페이지가 화면에 꽉 차게',
+            ),
+            const SizedBox(height: 8),
+            const _CaptureTip(
+              icon: Icons.lightbulb_outline,
+              text: '그림자가 글자를 가리지 않게',
             ),
             const Spacer(),
             FilledButton.icon(
@@ -84,6 +99,27 @@ class PhotoCaptureScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CaptureTip extends StatelessWidget {
+  const _CaptureTip({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(text, style: TextStyle(color: color)),
+        ),
+      ],
     );
   }
 }

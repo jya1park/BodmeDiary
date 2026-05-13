@@ -40,6 +40,7 @@ class OcrParsedEvent {
     this.note,
     this.sourceText,
     this.suspectedDuplicate = false,
+    this.warnings = const [],
   });
 
   final String id;
@@ -54,6 +55,10 @@ class OcrParsedEvent {
   String? note;
   final String? sourceText;
   bool suspectedDuplicate;
+  final List<String> warnings;
+
+  /// 정자(正) 표기로 횟수만 추출돼 startTime 이 placeholder 인 항목.
+  bool get tallyNoTime => warnings.contains('tally-no-time');
 
   factory OcrParsedEvent.fromMap(Map<String, dynamic> m) {
     final type = (m['type'] as String?) ?? 'diaper';
@@ -84,6 +89,9 @@ class OcrParsedEvent {
       diaperKind: _parseDiaper(diaper?['kind'] as String?),
       note: (diaper?['note'] ?? sleep?['note']) as String?,
       sourceText: m['sourceText'] as String?,
+      warnings: ((m['warnings'] as List?) ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
     );
   }
 

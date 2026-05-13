@@ -12,7 +12,9 @@ class AppConfig {
   static const int ocrDailyQuota = 20;
 
   /// 이미지 다운스케일 최대 변 길이 (픽셀).
-  static const int ocrImageMaxEdge = 1600;
+  /// 손글씨 OCR 정확도가 디테일에 매우 민감하므로 2400 으로 유지한다.
+  /// base64 인라인 페이로드는 약 1.4MB — Cloud Functions 10MB 한도 한참 아래.
+  static const int ocrImageMaxEdge = 2400;
 
   /// 수유 진척도 표시용 일일 목표량 (ml). 100% 채움 = 이 값에 도달.
   /// 신생아 표준 가이드 (~150ml/kg/day · 4kg 기준) 근처 라운드 값.

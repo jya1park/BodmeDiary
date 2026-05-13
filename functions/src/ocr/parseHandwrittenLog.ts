@@ -50,6 +50,7 @@ const EventSchema = z.object({
   diaper: DiaperSchema,
   sleep: SleepSchema,
   confidence: z.number().min(0).max(1).default(0.5),
+  warnings: z.array(z.string()).default([]),
   sourceText: z.string().nullable().optional(),
 });
 
