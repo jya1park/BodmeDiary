@@ -123,8 +123,12 @@ class TimerRepository {
             // 세션 로그 합치기 — 메모에 "수유 X분 / Y분 / ..." 형식으로 기록
             final mergedNote = mergedFeedingNote(
               existingNote: existing.note,
+              existingStart: existing.startAt,
+              existingEnd: existing.endAt,
               existingDurationMs: existing.durationMs,
               incomingNote: note,
+              incomingStart: active.startedAt,
+              incomingEnd: endAt,
               incomingDurationMs: effective.inMilliseconds,
             );
             tx.update(mergeRef, {

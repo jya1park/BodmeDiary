@@ -136,8 +136,12 @@ class EventsRepository {
     final mergedDurationMs = existing.durationMs + incoming.durationMs;
     final mergedNote = mergedFeedingNote(
       existingNote: existing.note,
+      existingStart: existing.startAt,
+      existingEnd: existing.endAt,
       existingDurationMs: existing.durationMs,
       incomingNote: incoming.note,
+      incomingStart: incoming.startAt,
+      incomingEnd: incoming.endAt,
       incomingDurationMs: incoming.durationMs,
     );
     await _firestore
@@ -225,8 +229,12 @@ class EventsRepository {
         (target.feedingAmountMl ?? 0) + (absorbed.feedingAmountMl ?? 0);
     final mergedNote = mergedFeedingNote(
       existingNote: target.note,
+      existingStart: target.startAt,
+      existingEnd: target.endAt,
       existingDurationMs: target.durationMs,
       incomingNote: absorbed.note,
+      incomingStart: absorbed.startAt,
+      incomingEnd: absorbed.endAt,
       incomingDurationMs: absorbed.durationMs,
     );
 
