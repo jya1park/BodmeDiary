@@ -87,7 +87,7 @@ class OcrParsedEvent {
       confidence: ((m['confidence'] as num?) ?? 0).toDouble(),
       feedingAmountMl: (feeding?['amountMl'] as num?)?.toInt(),
       diaperKind: _parseDiaper(diaper?['kind'] as String?),
-      note: (diaper?['note'] ?? sleep?['note']) as String?,
+      note: (feeding?['note'] ?? diaper?['note'] ?? sleep?['note']) as String?,
       sourceText: m['sourceText'] as String?,
       warnings: ((m['warnings'] as List?) ?? const [])
           .whereType<String>()

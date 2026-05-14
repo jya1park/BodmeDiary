@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions';
 import { z } from 'zod';
 
 import { GEMINI_API_KEY, OCR_DAILY_QUOTA, REGION } from '../config';
@@ -20,7 +21,9 @@ const Input = z.object({
 
 const FeedingSchema = z
   .object({
+    method: z.enum(['breast', 'formula']).nullable().optional(),
     amountMl: z.number().int().nonnegative().nullable().optional(),
+    note: z.string().nullable().optional(),
   })
   .nullable()
   .optional();
@@ -28,6 +31,7 @@ const FeedingSchema = z
 const DiaperSchema = z
   .object({
     kind: z.enum(['pee', 'poop', 'both']).nullable().optional(),
+    note: z.string().nullable().optional(),
   })
   .nullable()
   .optional();
@@ -38,7 +42,6 @@ const SleepSchema = z
   .optional();
 
 const EventSchema = z.object({
-  id: z.string().default(''),
   type: z.enum(['feeding', 'diaper', 'sleep']),
   startTime: z.string().regex(/^\d{1,2}:\d{2}$/),
   endTime: z
@@ -46,6 +49,7 @@ const EventSchema = z.object({
     .regex(/^\d{1,2}:\d{2}$/)
     .nullable()
     .optional(),
+  count: z.number().int().positive().default(1),
   feeding: FeedingSchema,
   diaper: DiaperSchema,
   sleep: SleepSchema,
@@ -130,15 +134,40 @@ export const parseHandwrittenLog = onCall(
     try {
       parsed = ResponseSchema.parse(JSON.parse(text));
     } catch (e) {
+      logger.warn('OCR response parse failed', {
+        uid,
+        rawText: text.slice(0, 2000),
+        error: (e as Error).message,
+      });
       throw new HttpsError('internal', `OCR 응답 파싱 실패: ${(e as Error).message}`);
     }
 
     const date = parsed.date ?? input.assumedDate ?? null;
-    const events = parsed.events.map((e, i) => ({
-      ...e,
-      id: e.id || `e${i + 1}`,
+
+    // count 필드를 펼쳐 N개 이벤트로 변환 (서버 측 expansion — 클라이언트 변경 없음)
+    const events: Array<Record<string, unknown>> = [];
+    for (const e of parsed.events) {
+      const n = Math.max(1, e.count ?? 1);
+      const rest: Record<string, unknown> = { ...e };
+      delete rest.count;
+      for (let i = 0; i < n; i++) {
+        events.push({
+          ...rest,
+          id: `e${events.length + 1}`,
+          date,
+        });
+      }
+    }
+
+    logger.info('OCR parsed', {
+      uid,
+      babyId: input.babyId,
       date,
-    }));
+      compactCount: parsed.events.length,
+      expandedCount: events.length,
+      warnings: parsed.warnings,
+      events: parsed.events, // 압축 형태로 로깅 (펼친 후는 N배 큼)
+    });
 
     return {
       draftId: `${Date.now()}_${uid}`,
