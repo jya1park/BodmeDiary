@@ -6,6 +6,7 @@ import { GEMINI_API_KEY, OCR_DAILY_QUOTA, REGION } from '../config';
 import { assertAuth, assertFamilyMember } from '../lib/auth';
 import { db, FieldValue, Timestamp } from '../lib/firestore';
 import { callGemini } from './geminiClient';
+import { buildPersonalHints } from './personalization';
 
 /// 클라이언트가 사진을 base64 로 인라인 전송. Storage 경유 없음.
 const Input = z.object({
@@ -117,13 +118,18 @@ export const parseHandwrittenLog = onCall(
       throw new HttpsError('invalid-argument', '이미지 데이터가 비어있습니다.');
     }
 
+    // 사용자별 학습된 패턴(이전 확정 결과)을 프롬프트 보강용으로 로드.
+    // 처음 사용하는 사용자는 빈 문자열이 와서 영향 없음.
+    const personalHints = await buildPersonalHints(uid);
+
     // Gemini 호출
     let text: string;
     try {
       const res = await callGemini(
         GEMINI_API_KEY.value(),
         bytes,
-        input.mimeType
+        input.mimeType,
+        { personalHints }
       );
       text = res.text;
     } catch (e) {
@@ -166,6 +172,7 @@ export const parseHandwrittenLog = onCall(
       compactCount: parsed.events.length,
       expandedCount: events.length,
       warnings: parsed.warnings,
+      personalHintsApplied: personalHints.length > 0,
       events: parsed.events, // 압축 형태로 로깅 (펼친 후는 N배 큼)
     });
 

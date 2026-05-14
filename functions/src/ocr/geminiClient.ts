@@ -67,14 +67,17 @@ const RESPONSE_SCHEMA = {
 };
 
 /// Gemini 비전 호출. responseSchema 로 출력 형식 강제. 파싱 실패 시 1회 재시도.
+/// personalHints 가 있으면 시스템 지침 뒤에 붙여 사용자별 few-shot 으로 활용.
 export async function callGemini(
   apiKey: string,
   imageBytes: Buffer,
   mimeType: string,
-  retry = true
+  options: { personalHints?: string; retry?: boolean } = {}
 ): Promise<OcrCallResult> {
   const ai = new GoogleGenAI({ apiKey });
   const base64 = imageBytes.toString('base64');
+  const retry = options.retry ?? true;
+  const personalHints = options.personalHints ?? '';
 
   const tryOnce = async (extra = ''): Promise<string> => {
     const res = await ai.models.generateContent({
@@ -94,7 +97,7 @@ export async function callGemini(
         },
       ],
       config: {
-        systemInstruction: SYSTEM_PROMPT + extra,
+        systemInstruction: SYSTEM_PROMPT + personalHints + extra,
         responseMimeType: 'application/json',
         responseSchema: RESPONSE_SCHEMA,
         temperature: 0,

@@ -10,6 +10,7 @@ import '../../../data/models/ocr_draft.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/events_repository.dart';
 import '../../../data/repositories/family_repository.dart';
+import '../../../data/repositories/ocr_learnings_repository.dart';
 import '../../manual/presentation/manual_record_form.dart';
 import '../application/ocr_controller.dart';
 
@@ -63,26 +64,27 @@ class _PhotoReviewScreenState extends ConsumerState<PhotoReviewScreen> {
     setState(() => _saving = true);
 
     final events = <CareEvent>[];
+    final pairs = <({OcrParsedEvent ocr, CareEvent saved})>[];
 
     // 1) 시각이 명확한 일반 이벤트들.
     final picked = draft.events
         .where((e) => !e.tallyNoTime && _selected.contains(e.id))
         .toList();
     for (final e in picked) {
-      events.add(
-        CareEvent(
-          id: newId(),
-          type: e.type,
-          startAt: e.startAt,
-          endAt: e.endAt,
-          localDayKey: localDayKey(e.startAt, baby.timezone),
-          createdByUid: user.uid,
-          source: CareEventSource.ocr,
-          feedingAmountMl: e.feedingAmountMl,
-          diaperKind: e.diaperKind,
-          note: e.note,
-        ),
+      final ev = CareEvent(
+        id: newId(),
+        type: e.type,
+        startAt: e.startAt,
+        endAt: e.endAt,
+        localDayKey: localDayKey(e.startAt, baby.timezone),
+        createdByUid: user.uid,
+        source: CareEventSource.ocr,
+        feedingAmountMl: e.feedingAmountMl,
+        diaperKind: e.diaperKind,
+        note: e.note,
       );
+      events.add(ev);
+      pairs.add((ocr: e, saved: ev));
     }
 
     // 2) 정자(正) 그룹: 시각을 분산하거나 같은 시각으로 일괄 저장.
@@ -113,20 +115,20 @@ class _PhotoReviewScreenState extends ConsumerState<PhotoReviewScreen> {
           final minutes = n == 1 ? 720 : (360 + (1020 * i) ~/ (n - 1));
           when = base.add(Duration(minutes: minutes));
         }
-        events.add(
-          CareEvent(
-            id: newId(),
-            type: src.type,
-            startAt: when,
-            endAt: when,
-            localDayKey: localDayKey(when, baby.timezone),
-            createdByUid: user.uid,
-            source: CareEventSource.ocr,
-            feedingAmountMl: src.feedingAmountMl,
-            diaperKind: src.diaperKind,
-            note: src.note,
-          ),
+        final ev = CareEvent(
+          id: newId(),
+          type: src.type,
+          startAt: when,
+          endAt: when,
+          localDayKey: localDayKey(when, baby.timezone),
+          createdByUid: user.uid,
+          source: CareEventSource.ocr,
+          feedingAmountMl: src.feedingAmountMl,
+          diaperKind: src.diaperKind,
+          note: src.note,
         );
+        events.add(ev);
+        pairs.add((ocr: src, saved: ev));
       }
     }
 
@@ -142,6 +144,21 @@ class _PhotoReviewScreenState extends ConsumerState<PhotoReviewScreen> {
       await ref
           .read(eventsRepositoryProvider)
           .addEvents(familyId: familyId, baby: baby, events: events);
+
+      // 저장 성공 후 (sourceText → 분류) 패턴을 누적 학습.
+      // 다음 OCR 호출에 함수가 user 문서에서 이 패턴들을 읽어 프롬프트에 주입.
+      final learnings = pairs
+          .map((p) => buildLearningEntry(ocr: p.ocr, saved: p.saved))
+          .whereType<LearningEntry>()
+          .toList();
+      if (learnings.isNotEmpty) {
+        // fire-and-forget — 실패해도 저장 흐름엔 영향 없음.
+        ref.read(ocrLearningsRepositoryProvider).recordConfirmed(
+              uid: user.uid,
+              entries: learnings,
+            );
+      }
+
       ref.read(ocrControllerProvider.notifier).clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
