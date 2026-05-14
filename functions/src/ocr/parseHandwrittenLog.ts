@@ -1,10 +1,10 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 
-import { OCR_DAILY_QUOTA, OPENAI_API_KEY, REGION } from '../config';
+import { GEMINI_API_KEY, OCR_DAILY_QUOTA, REGION } from '../config';
 import { assertAuth, assertFamilyMember } from '../lib/auth';
 import { db, FieldValue, Timestamp } from '../lib/firestore';
-import { callOpenAi } from './openaiClient';
+import { callGemini } from './geminiClient';
 
 /// 클라이언트가 사진을 base64 로 인라인 전송. Storage 경유 없음.
 const Input = z.object({
@@ -95,7 +95,7 @@ async function checkOcrQuota(uid: string): Promise<void> {
 }
 
 export const parseHandwrittenLog = onCall(
-  { region: REGION, secrets: [OPENAI_API_KEY] },
+  { region: REGION, secrets: [GEMINI_API_KEY] },
   async (req) => {
     const uid = assertAuth(req);
     const input = Input.parse(req.data);
@@ -113,17 +113,17 @@ export const parseHandwrittenLog = onCall(
       throw new HttpsError('invalid-argument', '이미지 데이터가 비어있습니다.');
     }
 
-    // OpenAI 호출
+    // Gemini 호출
     let text: string;
     try {
-      const res = await callOpenAi(
-        OPENAI_API_KEY.value(),
+      const res = await callGemini(
+        GEMINI_API_KEY.value(),
         bytes,
         input.mimeType
       );
       text = res.text;
     } catch (e) {
-      throw new HttpsError('internal', `OpenAI 호출 실패: ${(e as Error).message}`);
+      throw new HttpsError('internal', `Gemini 호출 실패: ${(e as Error).message}`);
     }
 
     let parsed: z.infer<typeof ResponseSchema>;
