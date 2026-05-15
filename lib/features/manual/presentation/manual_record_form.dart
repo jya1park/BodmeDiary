@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../../core/time/day_boundary.dart';
 import '../../../core/utils/id.dart';
 import '../../../data/models/care_event.dart';
-import '../../../data/models/feeding_note.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/events_repository.dart';
 import '../../../data/repositories/family_repository.dart';
@@ -46,14 +45,10 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
       if (existing.feedingAmountMl != null) {
         _amountCtrl.text = '${existing.feedingAmountMl}';
       }
-      // 수유는 세션 로그가 합쳐진 note 일 수 있으므로 사용자 메모만 분리해서 프리필
+      // 메모: 수유 세션 로그가 있어도 사용자가 직접 수정·삭제할 수 있도록 전체 노트를 그대로 표시.
+      // 형식 유지는 사용자 책임 — parseFeedingNote 가 format 깨진 입력도 graceful 처리.
       if (existing.note != null) {
-        if (existing.type == CareEventType.feeding) {
-          final parts = parseFeedingNote(existing.note);
-          if (parts.userNote != null) _noteCtrl.text = parts.userNote!;
-        } else {
-          _noteCtrl.text = existing.note!;
-        }
+        _noteCtrl.text = existing.note!;
       }
     } else {
       _type = CareEventType.feeding;
@@ -168,17 +163,10 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
       final amount = _amountCtrl.text.trim().isEmpty
           ? null
           : int.tryParse(_amountCtrl.text.trim());
+      // 메모는 사용자가 편집한 그대로 저장. 수유 세션 로그를 사용자가 수정·삭제하면 그 결과를
+      // 그대로 보존하고, list/edit 양쪽에서 parseFeedingNote 가 format 을 재해석한다.
       final noteText = _noteCtrl.text.trim();
-      final userNote = noteText.isEmpty ? null : noteText;
-
-      // 수유 편집은 기존 세션 로그 + 새 사용자 메모로 다시 빌드
-      String? note;
-      if (_type == CareEventType.feeding && _isEdit) {
-        final existingParts = parseFeedingNote(widget.existing!.note);
-        note = buildFeedingNote(existingParts.sessions, userNote);
-      } else {
-        note = userNote;
-      }
+      final note = noteText.isEmpty ? null : noteText;
 
       if (_isEdit) {
         // 편집 — 동일 ID 유지
@@ -380,14 +368,20 @@ class _ManualRecordFormState extends ConsumerState<ManualRecordForm> {
             const SizedBox(height: 16),
             TextField(
               controller: _noteCtrl,
-              maxLines: 2,
-              maxLength: 200,
+              minLines: 3,
+              maxLines: 8,
+              maxLength: 500,
               textInputAction: TextInputAction.newline,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: '메모 (선택)',
                 hintText: '특이사항을 적어두세요',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.edit_note),
+                helperText: isFeeding && _isEdit
+                    ? '합쳐진 세션 기록도 직접 수정·삭제할 수 있어요'
+                    : null,
+                helperMaxLines: 2,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.edit_note),
+                alignLabelWithHint: true,
               ),
             ),
             const SizedBox(height: 8),
