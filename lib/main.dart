@@ -1,4 +1,7 @@
+import 'dart:developer' as developer;
+
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -24,6 +27,27 @@ Future<void> main() async {
   } on FirebaseException catch (e) {
     if (e.code != 'duplicate-app') rethrow;
   }
+
+  // [DIAG] Firebase Auth 캐시 상태를 부팅 직후 한 번 출력 — 세션 영속화 진단용.
+  // adb logcat 에 'BodmeDiary' 태그로 잡힘.
+  final cachedUser = FirebaseAuth.instance.currentUser;
+  developer.log(
+    'auth boot: currentUser=${cachedUser?.uid ?? 'null'} '
+    'email=${cachedUser?.email ?? '-'}',
+    name: 'BodmeDiary',
+  );
+  FirebaseAuth.instance.authStateChanges().listen((u) {
+    developer.log(
+      'auth state change: ${u?.uid ?? 'null'}',
+      name: 'BodmeDiary',
+    );
+  });
+  FirebaseAuth.instance.idTokenChanges().listen((u) {
+    developer.log(
+      'idToken change: ${u?.uid ?? 'null'}',
+      name: 'BodmeDiary',
+    );
+  });
 
   await FirebaseAppCheck.instance.activate(
     androidProvider:
