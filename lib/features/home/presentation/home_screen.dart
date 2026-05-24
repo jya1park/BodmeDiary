@@ -285,6 +285,7 @@ class HomeScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: ListView(
+          key: const PageStorageKey('home_list'),
           padding: const EdgeInsets.all(20),
           children: [
             if (activeFeed != null)

@@ -87,6 +87,7 @@ class EventListView extends ConsumerWidget {
     }
     final items = _buildItems(events);
     return ListView.builder(
+      key: const PageStorageKey('event_list'),
       padding: padding,
       itemCount: items.length,
       itemBuilder: (_, i) {

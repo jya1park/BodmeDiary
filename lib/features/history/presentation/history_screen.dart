@@ -111,6 +111,7 @@ class _RangeView extends ConsumerWidget {
         // 주·월 — 막대그래프
         final agg = aggregateByDay(events, dayKeys);
         return ListView(
+          key: const PageStorageKey('history_chart_list'),
           padding: const EdgeInsets.all(16),
           children: [
             HistoryChartCard(
