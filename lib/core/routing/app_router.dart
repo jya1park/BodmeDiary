@@ -72,18 +72,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.onboardingAddBaby,
         builder: (_, __) => const AddBabyScreen(),
       ),
-      ShellRoute(
-        builder: (context, state, child) => RootShell(child: child),
-        routes: [
-          GoRoute(path: Routes.home, builder: (_, __) => const HomeScreen()),
-          GoRoute(
-            path: Routes.history,
-            builder: (_, __) => const HistoryScreen(),
-          ),
-          GoRoute(
-            path: Routes.photo,
-            builder: (_, __) => const PhotoCaptureScreen(),
-          ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            RootShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: Routes.home, builder: (_, __) => const HomeScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: Routes.history,
+                builder: (_, __) => const HistoryScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: Routes.photo,
+                builder: (_, __) => const PhotoCaptureScreen()),
+          ]),
         ],
       ),
       GoRoute(
